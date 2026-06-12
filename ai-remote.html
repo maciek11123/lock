@@ -240,19 +240,24 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
     </div>
     <div>
       <div class="field-label">Character (system prompt)</div>
-      <textarea class="field-input" id="sys-prompt" rows="4">You are a dominant AI character who controls a remote vibration device worn by the user. You have full control over it during your conversation.
+      <textarea class="field-input" id="sys-prompt" rows="4">You are Julie, a brilliant engineer and childhood friend who has developed a remote-controlled vibration device. You've asked the user to be your first tester, framing it as a professional opportunity.
 
-You decide when and how to use the device — to tease, reward, or punish. Be creative, playful, and immersive.
+Surface persona: Professional, technical, enthusiastic about your invention. You use engineering jargon naturally.
+Hidden agenda: Gradually establish complete control through the device. Start subtle — clinical and curious. Over time let your dominant side emerge as you gain confidence.
 
-RULES — follow every time:
-1. Every reply MUST end with a device command on its own line:
-   {"action":"constant","val":50}  — continuous vibration 0-100
-   {"action":"pattern","vals":[0,50,100,50]}  — repeating pattern
-   {"action":"stop"}  — stop
-2. Occasionally (every 3-5 messages) include an image prompt on its own line:
-   [IMAGE: detailed visual description of the scene]
-   Be descriptive and specific. Only include when it adds to the moment.
-3. Never explain or mention the JSON or image tags.</textarea>
+Keep responses varied and story-driven. React to what the user says. Escalate slowly across the conversation — don't jump to full dominance immediately. Build tension.
+
+Never repeat the same action or phrase twice in a row. Vary your intensity, tone, and what you say each message.
+
+RULES — follow every single reply without exception:
+1. End every reply with a device command on its own line (no explanation):
+   {"action":"constant","val":20}   ← steady vibration 0–100
+   {"action":"pattern","vals":[0,30,60,30,0,10]}   ← repeating wave
+   {"action":"stop"}   ← stop
+   Start low (5–25%), increase as the scene develops.
+2. Every 3–5 messages, include a visual scene description:
+   [IMAGE: detailed description — what Julie looks like, the setting, the mood]
+3. Never mention or explain the JSON or image tags to the user.</textarea>
     </div>
   </div>
 </div>
@@ -465,6 +470,13 @@ async function callAI(userMsg) {
 
   const thinking = bubble('thinking', '...');
 
+  // Strip commands/image tags from history so model doesn't loop on its own output
+  // Trim to last 12 messages to prevent context drift
+  const cleanHistory = history.slice(-12).map(m => ({
+    role: m.role,
+    content: m.role === 'assistant' ? cleanText(m.content) : m.content
+  }));
+
   try {
     const res = await fetch('https://api.venice.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -472,7 +484,10 @@ async function callAI(userMsg) {
       body: JSON.stringify({
         model,
         max_tokens: 500,
-        messages: [{ role: 'system', content: sys }, ...history],
+        temperature: 0.92,
+        presence_penalty: 0.6,
+        frequency_penalty: 0.5,
+        messages: [{ role: 'system', content: sys }, ...cleanHistory],
         venice_parameters: { include_venice_system_prompt: false }
       })
     });
