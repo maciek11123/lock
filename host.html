@@ -88,24 +88,20 @@
 <div class="log-box" id="log"></div>
 
 <script>
-const GITHUB_TOKEN = localStorage.getItem('gh_token') || promptForToken();
+// Token: pass once via URL hash #t=TOKEN, stored to localStorage after that
+(function(){
+  const hash = location.hash.slice(1);
+  const params = new URLSearchParams(hash);
+  if (params.get('t')) { localStorage.setItem('gh_token', params.get('t')); location.hash = ''; }
+})();
+const GITHUB_TOKEN = localStorage.getItem('gh_token') || '';
 const GITHUB_REPO  = 'maciek11123/lock';
 const ID_FILE      = 'id.json';
 
-function promptForToken() {
-  const t = prompt('Enter GitHub token to sync host ID:');
-  if (t) localStorage.setItem('gh_token', t);
-  return t;
-}
-
 function getPersistentId() {
-  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const fallbackId = 'LOCKS-' + randomPart;
-  try {
-    let savedId = localStorage.getItem('adorime_peer_id');
-    if (!savedId) { localStorage.setItem('adorime_peer_id', fallbackId); return fallbackId; }
-    return savedId;
-  } catch (e) { return fallbackId; }
+  const FIXED_ID = 'LOCKS-7B2K';
+  try { localStorage.setItem('adorime_peer_id', FIXED_ID); } catch(e) {}
+  return FIXED_ID;
 }
 
 async function pushIdToGitHub(id) {
