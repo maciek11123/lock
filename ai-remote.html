@@ -217,10 +217,6 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
 <div class="settings-drawer" id="settings-drawer">
   <div class="settings-inner">
     <div>
-      <div class="field-label">Venice API Key</div>
-      <input class="field-input" id="api-key" type="password" placeholder="VENICE_INFERENCE_KEY_..." autocomplete="off">
-    </div>
-    <div>
       <div class="field-label">Chat Model</div>
       <select class="field-input" id="chat-model">
         <option value="venice-uncensored-role-play" selected>venice-uncensored-role-play ★</option>
@@ -285,13 +281,12 @@ const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.j
 // ── Persist settings ──
 const $ = id => document.getElementById(id);
 (function(){
-  ['venice_key','chat_model','img_model','sys_prompt'].forEach(k => {
-    const map = {venice_key:'api-key', chat_model:'chat-model', img_model:'img-model', sys_prompt:'sys-prompt'};
+  ['chat_model','img_model','sys_prompt'].forEach(k => {
+    const map = {chat_model:'chat-model', img_model:'img-model', sys_prompt:'sys-prompt'};
     const v = localStorage.getItem(k);
     if (v) $(map[k]).value = v;
   });
 })();
-$('api-key').addEventListener('change', () => localStorage.setItem('venice_key', $('api-key').value.trim()));
 $('chat-model').addEventListener('change', () => localStorage.setItem('chat_model', $('chat-model').value));
 $('img-model').addEventListener('change', () => localStorage.setItem('img_model', $('img-model').value));
 $('sys-prompt').addEventListener('change', () => localStorage.setItem('sys_prompt', $('sys-prompt').value));
@@ -421,7 +416,7 @@ function cleanText(text) {
 
 // ── Venice image gen ──
 async function genImage(prompt) {
-  const key = $('api-key').value.trim();
+  const key = 'VENICE_INFERENCE_KEY_-D6dzG6kXZQK9JnVhM8qxjqbq8SFiAyqzbLSq5O2hb';
   const model = $('img-model').value;
   if (!key || model === 'none') return;
 
@@ -455,16 +450,9 @@ async function genImage(prompt) {
 const history = [];
 
 async function callAI(userMsg) {
-  const key = $('api-key').value.trim();
+  const key = 'VENICE_INFERENCE_KEY_-D6dzG6kXZQK9JnVhM8qxjqbq8SFiAyqzbLSq5O2hb';
   const model = $('chat-model').value;
   const sys = $('sys-prompt').value;
-
-  if (!key) {
-    // Open settings to show the key field
-    if (!settingsOpen) toggleSettings();
-    note('⚠ Paste your Venice API key in settings (⚙)');
-    return;
-  }
 
   history.push({ role: 'user', content: userMsg });
 
@@ -521,7 +509,6 @@ async function callAI(userMsg) {
 
     if (imgPrompt) genImage(imgPrompt); // fire async, don't await
 
-    localStorage.setItem('venice_key', key);
 
   } catch(e) {
     thinking.remove();
