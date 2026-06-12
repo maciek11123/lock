@@ -229,6 +229,26 @@ function buildPayload(intensity0to100) { return [0x5A, 0x00, 0x00, 0x01, 0x31, i
 
 let device = null, writeChar = null, intensity = 50;
 
+// ── Command polling ────────────────────────────────────────────────────
+let lastCommandTs = 0;
+async function pollCommand() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/command.json?t=${Date.now()}`, {
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const cmd = JSON.parse(atob(data.content));
+    if (cmd.ts <= lastCommandTs) return; // already executed
+    lastCommandTs = cmd.ts;
+    log(`📡 Remote command: ${cmd.action} ${cmd.val ?? ''}`, 'info');
+    if (cmd.action === 'constant') { clearInterval(patternInterval); intensity = cmd.val; onSlider(intensity); sendVibrate(); }
+    else if (cmd.action === 'pattern') { playPattern(cmd.vals); }
+    else if (cmd.action === 'stop') { triggerLocalStop(); }
+  } catch(e) {}
+}
+setInterval(pollCommand, 3000);
+
 function log(msg, type = '') {
   const box = document.getElementById('log');
   const d = document.createElement('div');
