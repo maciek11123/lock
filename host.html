@@ -150,8 +150,19 @@ peer.on('open', id => {
   pushIdToGitHub(id);
 });
 
+const remotes = new Set();
+
+function updateRemoteCount() {
+  const n = remotes.size;
+  const el = document.getElementById('device-status');
+  if (n === 0) { el.textContent = 'no remotes'; el.className = 'status-value wait'; }
+  else { el.textContent = n + ' remote' + (n > 1 ? 's' : '') + ' connected'; el.className = 'status-value ok'; }
+}
+
 peer.on('connection', conn => {
-  log('Remote client connected!', 'ok');
+  remotes.add(conn);
+  log(`Remote connected (${remotes.size} total)`, 'ok');
+  updateRemoteCount();
   conn.on('data', data => {
     if (data.action === 'constant') {
       clearInterval(patternInterval);
@@ -163,6 +174,15 @@ peer.on('connection', conn => {
     } else if (data.action === 'stop') {
       triggerLocalStop();
     }
+  });
+  conn.on('close', () => {
+    remotes.delete(conn);
+    log(`Remote disconnected (${remotes.size} remaining)`, 'info');
+    updateRemoteCount();
+  });
+  conn.on('error', () => {
+    remotes.delete(conn);
+    updateRemoteCount();
   });
 });
 
