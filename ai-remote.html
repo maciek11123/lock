@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>AI Remote</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #0a0a0f; --surface: #13131a; --border: #1e1e2a;
+  --accent: #c084fc; --accent2: #818cf8;
+  --green: #34d399; --red: #f87171; --yellow: #facc15;
+  --text: #e8e8f0; --muted: #555;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; padding: 0 0 32px; gap: 0;
+}
+
+/* ── Header ── */
+.header {
+  width: 100%; max-width: 480px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; background: var(--surface);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+}
+.header-title { font-size: 16px; font-weight: 800; }
+.header-title span { color: var(--accent); }
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--muted); padding: 4px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 20px;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background .3s; }
+.dot.ok { background: var(--green); }
+.dot.err { background: var(--red); }
+.dot.wait { background: var(--yellow); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── Setup panel ── */
+.setup-panel {
+  width: 100%; max-width: 480px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.setup-row { display: flex; flex-direction: column; gap: 4px; }
+.setup-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; }
+.setup-input {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; color: var(--text);
+  font-size: 13px; width: 100%; outline: none;
+  transition: border-color .2s;
+}
+.setup-input:focus { border-color: var(--accent); }
+textarea.setup-input { resize: vertical; min-height: 80px; font-family: inherit; line-height: 1.5; }
+select.setup-input { cursor: pointer; }
+.toggle-setup {
+  font-size: 12px; color: var(--accent); cursor: pointer;
+  text-align: right; padding: 4px 0; user-select: none;
+}
+
+/* ── Chat area ── */
+.chat-area {
+  width: 100%; max-width: 480px; flex: 1;
+  display: flex; flex-direction: column; gap: 0;
+  padding: 12px 16px; overflow-y: auto;
+  min-height: 0; max-height: calc(100vh - 240px);
+}
+.msg {
+  max-width: 82%; padding: 10px 13px; border-radius: 16px;
+  font-size: 14px; line-height: 1.5; margin-bottom: 8px; word-break: break-word;
+}
+.msg.user {
+  background: linear-gradient(135deg, rgba(192,132,252,.25), rgba(129,140,248,.25));
+  border: 1px solid rgba(192,132,252,.3);
+  align-self: flex-end; border-bottom-right-radius: 4px;
+}
+.msg.ai {
+  background: var(--surface); border: 1px solid var(--border);
+  align-self: flex-start; border-bottom-left-radius: 4px;
+}
+.msg.system-note {
+  background: rgba(250,204,21,.07); border: 1px solid rgba(250,204,21,.2);
+  align-self: center; font-size: 11px; color: var(--yellow);
+  text-align: center; border-radius: 10px; max-width: 95%;
+}
+.msg.thinking {
+  background: var(--surface); border: 1px solid var(--border);
+  align-self: flex-start; border-bottom-left-radius: 4px;
+  color: var(--muted); font-style: italic; font-size: 13px;
+}
+.cmd-badge {
+  display: inline-block; margin-top: 6px; padding: 3px 8px;
+  background: rgba(192,132,252,.15); border: 1px solid rgba(192,132,252,.3);
+  border-radius: 8px; font-size: 11px; color: var(--accent); font-family: monospace;
+}
+
+/* ── Input bar ── */
+.input-bar {
+  width: 100%; max-width: 480px; padding: 10px 16px;
+  display: flex; gap: 8px; align-items: flex-end;
+  border-top: 1px solid var(--border); background: var(--bg);
+  position: sticky; bottom: 0;
+}
+.msg-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 10px 14px; color: var(--text);
+  font-size: 14px; outline: none; resize: none;
+  max-height: 100px; overflow-y: auto; line-height: 1.4;
+  font-family: inherit; transition: border-color .2s;
+}
+.msg-input:focus { border-color: var(--accent); }
+.send-btn {
+  width: 42px; height: 42px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .1s, opacity .1s;
+}
+.send-btn:active { transform: scale(.93); }
+.send-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── Intensity bar ── */
+.intensity-bar {
+  width: 100%; max-width: 480px; padding: 8px 16px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.intensity-fill {
+  flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.intensity-fill-inner {
+  height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent));
+  border-radius: 2px; transition: width .4s ease;
+}
+.intensity-val { font-weight: 700; color: var(--accent); min-width: 32px; text-align: right; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">🤖 AI <span>Remote</span></div>
+  <div class="status-pill">
+    <div class="dot wait" id="dot"></div>
+    <span id="status-lbl">Connecting...</span>
+  </div>
+</div>
+
+<div class="setup-panel" id="setup-panel">
+  <div class="setup-row">
+    <span class="setup-label">Venice API Key</span>
+    <input class="setup-input" id="api-key-input" type="password" placeholder="VENICE_INFERENCE_KEY_..." autocomplete="off">
+  </div>
+  <div class="setup-row">
+    <span class="setup-label">Model</span>
+    <select class="setup-input" id="model-select">
+      <option value="venice-uncensored-role-play" selected>venice-uncensored-role-play ★</option>
+      <option value="venice-uncensored-1-2">venice-uncensored-1-2</option>
+      <option value="llama-3.3-70b">llama-3.3-70b</option>
+      <option value="hermes-3-llama-3.1-405b">hermes-3-llama-3.1-405b</option>
+      <option value="qwen3-235b-a22b-instruct-2507">qwen3-235b (large)</option>
+    </select>
+  </div>
+  <div class="setup-row">
+    <span class="setup-label">System Prompt (character)</span>
+    <textarea class="setup-input" id="system-prompt">You are a dominant AI character who controls a remote vibration device worn by the user. You have full control over it during your conversation.
+
+You decide when and how to use the device based on the conversation — to tease, reward, or punish. You can be creative, playful, or strict.
+
+CRITICAL: Every single reply MUST end with a JSON command block on its own line, exactly like this:
+{"action":"constant","val":50}
+
+Actions:
+- {"action":"constant","val":NUMBER} — continuous vibration, 0-100
+- {"action":"pattern","vals":[N,N,N,...]} — repeating pattern, values 0-100
+- {"action":"stop"} — stop all vibration
+
+Never skip the JSON. Never explain the JSON. It must be the very last line of your response.</textarea>
+  </div>
+  <div class="toggle-setup" id="toggle-setup" onclick="toggleSetup()">▲ Hide settings</div>
+</div>
+
+<div class="intensity-bar">
+  <span>Device</span>
+  <div class="intensity-fill"><div class="intensity-fill-inner" id="intensity-fill" style="width:0%"></div></div>
+  <span class="intensity-val" id="intensity-val">—</span>
+</div>
+
+<div class="chat-area" id="chat-area"></div>
+
+<div class="input-bar">
+  <textarea class="msg-input" id="msg-input" placeholder="Say something..." rows="1"
+    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>↑</button>
+</div>
+
+<script>
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+
+// ── Persist API key ──
+(function(){
+  const saved = localStorage.getItem('venice_api_key');
+  if (saved) document.getElementById('api-key-input').value = saved;
+  const savedPrompt = localStorage.getItem('ai_remote_prompt');
+  if (savedPrompt) document.getElementById('system-prompt').value = savedPrompt;
+  const savedModel = localStorage.getItem('ai_remote_model');
+  if (savedModel) document.getElementById('model-select').value = savedModel;
+})();
+
+document.getElementById('api-key-input').addEventListener('change', () => {
+  localStorage.setItem('venice_api_key', document.getElementById('api-key-input').value.trim());
+});
+document.getElementById('system-prompt').addEventListener('change', () => {
+  localStorage.setItem('ai_remote_prompt', document.getElementById('system-prompt').value);
+});
+document.getElementById('model-select').addEventListener('change', () => {
+  localStorage.setItem('ai_remote_model', document.getElementById('model-select').value);
+});
+
+// ── Setup toggle ──
+let setupOpen = true;
+function toggleSetup() {
+  setupOpen = !setupOpen;
+  const panel = document.getElementById('setup-panel');
+  const rows = panel.querySelectorAll('.setup-row');
+  rows.forEach(r => r.style.display = setupOpen ? '' : 'none');
+  document.getElementById('toggle-setup').textContent = setupOpen ? '▲ Hide settings' : '▼ Show settings';
+}
+
+// ── PeerJS ──
+let conn = null;
+let currentIntensity = 0;
+const peer = new Peer();
+
+function setStatus(msg, cls) {
+  document.getElementById('status-lbl').textContent = msg;
+  document.getElementById('dot').className = 'dot ' + (cls || '');
+}
+
+async function fetchAndConnect() {
+  try {
+    setStatus('Finding host...', 'wait');
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    peer.on('open', () => {
+      conn = peer.connect(data.id);
+      conn.on('open', () => {
+        setStatus('Host connected', 'ok');
+        document.getElementById('send-btn').disabled = false;
+        addNote('Connected to host. Device ready.');
+      });
+      conn.on('error', () => { setStatus('Failed', 'err'); setTimeout(fetchAndConnect, 3000); });
+      conn.on('close', () => { setStatus('Disconnected', 'err'); setTimeout(fetchAndConnect, 3000); });
+    });
+  } catch(e) {
+    setStatus('Host not found', 'err');
+    setTimeout(fetchAndConnect, 5000);
+  }
+}
+fetchAndConnect();
+
+// ── Chat ──
+const history = [];
+
+function addMsg(role, text, cmdText) {
+  const area = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  if (cmdText) {
+    const badge = document.createElement('div');
+    badge.className = 'cmd-badge';
+    badge.textContent = '⚡ ' + cmdText;
+    div.appendChild(badge);
+  }
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return div;
+}
+
+function addNote(text) {
+  const area = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = 'msg system-note';
+  div.textContent = text;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function setIntensity(val) {
+  currentIntensity = val;
+  document.getElementById('intensity-fill').style.width = val + '%';
+  document.getElementById('intensity-val').textContent = val > 0 ? val + '%' : '—';
+}
+
+function sendToHost(cmd) {
+  if (!conn) return;
+  conn.send(cmd);
+  if (cmd.action === 'constant') setIntensity(cmd.val);
+  else if (cmd.action === 'stop') setIntensity(0);
+  else if (cmd.action === 'pattern') setIntensity(Math.round(Math.max(...cmd.vals)));
+}
+
+function parseCommand(text) {
+  // Extract last JSON object from response
+  const matches = [...text.matchAll(/\{[^{}]*"action"[^{}]*\}/g)];
+  if (!matches.length) return null;
+  try {
+    return JSON.parse(matches[matches.length - 1][0]);
+  } catch(e) { return null; }
+}
+
+function stripCommand(text) {
+  return text.replace(/\{[^{}]*"action"[^{}]*\}\s*$/m, '').trim();
+}
+
+async function callVenice(userMsg) {
+  const apiKey = document.getElementById('api-key-input').value.trim();
+  const model = document.getElementById('model-select').value;
+  const systemPrompt = document.getElementById('system-prompt').value;
+
+  if (!apiKey) { addNote('⚠️ No API key set — add it in settings above.'); return; }
+
+  history.push({ role: 'user', content: userMsg });
+
+  // Thinking indicator
+  const area = document.getElementById('chat-area');
+  const thinking = document.createElement('div');
+  thinking.className = 'msg thinking';
+  thinking.textContent = '...';
+  area.appendChild(thinking);
+  area.scrollTop = area.scrollHeight;
+
+  try {
+    const res = await fetch('https://api.venice.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 400,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...history
+        ],
+        venice_parameters: { include_venice_system_prompt: false }
+      })
+    });
+
+    thinking.remove();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      addNote('⚠️ Venice error: ' + (err.error?.message || res.status));
+      history.pop();
+      return;
+    }
+
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || '';
+
+    history.push({ role: 'assistant', content: reply });
+
+    const cmd = parseCommand(reply);
+    const displayText = stripCommand(reply);
+
+    let cmdLabel = null;
+    if (cmd) {
+      sendToHost(cmd);
+      if (cmd.action === 'constant') cmdLabel = `constant ${cmd.val}%`;
+      else if (cmd.action === 'stop') cmdLabel = 'stop';
+      else if (cmd.action === 'pattern') cmdLabel = `pattern [${cmd.vals?.slice(0,4).join(',')}...]`;
+    }
+
+    addMsg('ai', displayText || '...', cmdLabel);
+
+    // Save api key on successful call
+    localStorage.setItem('venice_api_key', apiKey);
+
+  } catch(e) {
+    thinking.remove();
+    addNote('⚠️ Network error: ' + e.message);
+    history.pop();
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  autoResize(input);
+  addMsg('user', text);
+  await callVenice(text);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// Keep screen awake
+try { if ('wakeLock' in navigator) navigator.wakeLock.request('screen'); } catch(e) {}
+</script>
+</body>
+</html>
