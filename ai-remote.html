@@ -534,6 +534,12 @@ async function send() {
   const text = input.value.trim();
   if (!text) return;
   input.value = ''; autoResize(input);
+  // Hard stop keyword — cuts device immediately, no AI call
+  if (text.toLowerCase() === 'stop') {
+    fireCmd({ action: 'stop' });
+    note('Device stopped.');
+    return;
+  }
   bubble('user', text);
   $('send-btn').disabled = true;
   await callAI(text);
