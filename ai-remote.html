@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AI Remote</title>
+<title>AI Remote — Claude</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -152,17 +152,10 @@ select.setup-input { cursor: pointer; }
 
 <div class="setup-panel" id="setup-panel">
   <div class="setup-row">
-    <span class="setup-label">Venice API Key</span>
-    <input class="setup-input" id="api-key-input" type="password" placeholder="VENICE_INFERENCE_KEY_..." autocomplete="off">
-  </div>
-  <div class="setup-row">
     <span class="setup-label">Model</span>
     <select class="setup-input" id="model-select">
-      <option value="venice-uncensored-role-play" selected>venice-uncensored-role-play ★</option>
-      <option value="venice-uncensored-1-2">venice-uncensored-1-2</option>
-      <option value="llama-3.3-70b">llama-3.3-70b</option>
-      <option value="hermes-3-llama-3.1-405b">hermes-3-llama-3.1-405b</option>
-      <option value="qwen3-235b-a22b-instruct-2507">qwen3-235b (large)</option>
+      <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 ★</option>
+      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (faster)</option>
     </select>
   </div>
   <div class="setup-row">
@@ -203,17 +196,12 @@ const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.j
 
 // ── Persist API key ──
 (function(){
-  const saved = localStorage.getItem('venice_api_key');
-  if (saved) document.getElementById('api-key-input').value = saved;
   const savedPrompt = localStorage.getItem('ai_remote_prompt');
   if (savedPrompt) document.getElementById('system-prompt').value = savedPrompt;
   const savedModel = localStorage.getItem('ai_remote_model');
   if (savedModel) document.getElementById('model-select').value = savedModel;
 })();
 
-document.getElementById('api-key-input').addEventListener('change', () => {
-  localStorage.setItem('venice_api_key', document.getElementById('api-key-input').value.trim());
-});
 document.getElementById('system-prompt').addEventListener('change', () => {
   localStorage.setItem('ai_remote_prompt', document.getElementById('system-prompt').value);
 });
@@ -320,11 +308,8 @@ function stripCommand(text) {
 }
 
 async function callVenice(userMsg) {
-  const apiKey = document.getElementById('api-key-input').value.trim();
   const model = document.getElementById('model-select').value;
   const systemPrompt = document.getElementById('system-prompt').value;
-
-  if (!apiKey) { addNote('⚠️ No API key set — add it in settings above.'); return; }
 
   history.push({ role: 'user', content: userMsg });
 
@@ -337,20 +322,14 @@ async function callVenice(userMsg) {
   area.scrollTop = area.scrollHeight;
 
   try {
-    const res = await fetch('https://api.venice.ai/api/v1/chat/completions', {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
         max_tokens: 400,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...history
-        ],
-        venice_parameters: { include_venice_system_prompt: false }
+        system: systemPrompt,
+        messages: history
       })
     });
 
@@ -358,13 +337,13 @@ async function callVenice(userMsg) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      addNote('⚠️ Venice error: ' + (err.error?.message || res.status));
+      addNote('⚠️ API error: ' + (err.error?.message || res.status));
       history.pop();
       return;
     }
 
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || '';
+    const reply = data.content?.[0]?.text || '';
 
     history.push({ role: 'assistant', content: reply });
 
@@ -380,9 +359,6 @@ async function callVenice(userMsg) {
     }
 
     addMsg('ai', displayText || '...', cmdLabel);
-
-    // Save api key on successful call
-    localStorage.setItem('venice_api_key', apiKey);
 
   } catch(e) {
     thinking.remove();
