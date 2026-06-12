@@ -65,6 +65,10 @@
     </div>
   </div>
   <div class="status-row">
+    <span class="status-label">GitHub Sync</span>
+    <span class="status-value wait" id="git-status">pending...</span>
+  </div>
+  <div class="status-row">
     <span class="status-label">Device</span>
     <span class="status-value wait" id="device-status">not connected</span>
   </div>
@@ -84,6 +88,16 @@
 <div class="log-box" id="log"></div>
 
 <script>
+const GITHUB_TOKEN = localStorage.getItem('gh_token') || promptForToken();
+const GITHUB_REPO  = 'maciek11123/lock';
+const ID_FILE      = 'id.json';
+
+function promptForToken() {
+  const t = prompt('Enter GitHub token to sync host ID:');
+  if (t) localStorage.setItem('gh_token', t);
+  return t;
+}
+
 function getPersistentId() {
   const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
   const fallbackId = 'LOCKS-' + randomPart;
@@ -94,6 +108,42 @@ function getPersistentId() {
   } catch (e) { return fallbackId; }
 }
 
+async function pushIdToGitHub(id) {
+  try {
+    // Get current file SHA if it exists
+    let sha = null;
+    const getRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${ID_FILE}`, {
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (getRes.ok) { const data = await getRes.json(); sha = data.sha; }
+
+    const content = btoa(JSON.stringify({ id, updated: new Date().toISOString() }));
+    const body = { message: `update host id: ${id}`, content, ...(sha ? { sha } : {}) };
+
+    const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${ID_FILE}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${GITHUB_TOKEN}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (putRes.ok) {
+      document.getElementById('git-status').textContent = 'synced ✓';
+      document.getElementById('git-status').className = 'status-value ok';
+      log('✅ ID pushed to GitHub', 'ok');
+    } else {
+      throw new Error(await putRes.text());
+    }
+  } catch(e) {
+    document.getElementById('git-status').textContent = 'sync failed';
+    document.getElementById('git-status').className = 'status-value err';
+    log(`GitHub sync failed: ${e.message}`, 'err');
+  }
+}
+
 const myId = getPersistentId();
 const peer = new Peer(myId);
 
@@ -101,6 +151,7 @@ peer.on('open', id => {
   document.getElementById('peer-id').textContent = id;
   document.getElementById('copy-btn').style.display = 'block';
   log('Ready for remote. Share the ID above.', 'info');
+  pushIdToGitHub(id);
 });
 
 peer.on('connection', conn => {

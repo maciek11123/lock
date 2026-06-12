@@ -34,35 +34,27 @@ body {
 .intensity-display { font-size: 56px; font-weight: 800; color: var(--accent); text-align: center; line-height: 1; margin-bottom: 10px; letter-spacing: -2px; }
 .intensity-display span { font-size: 22px; font-weight: 400; color: var(--muted); }
 input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; height: 6px; }
-
-/* Updated Button for Start/Stop Toggle */
 .action-btn { width: 100%; max-width: 420px; padding: 16px; border-radius: 14px; border: 1px solid #2d1818; font-size: 16px; font-weight: 700; cursor: pointer; background: #1c1c24; transition: background .15s, transform .1s; }
 .action-btn:active { transform: scale(.98); background: #2a1010; }
-
 .section-title { width: 100%; max-width: 420px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 2px; }
 .mode-grid { width: 100%; max-width: 420px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .mode-btn { padding: 12px 6px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; transition: all .15s; line-height: 1.3; }
 .mode-btn.active { background: linear-gradient(135deg,rgba(192,132,252,.2),rgba(129,140,248,.2)); border-color: var(--accent); color: var(--accent); }
 .mode-icon { font-size: 18px; display: block; margin-bottom: 3px; }
-
-/* Touchpad Styles */
 .touch-pad { width: 100%; max-width: 420px; height: 120px; background: #15151e; border: 1px solid var(--border); border-radius: 14px; position: relative; touch-action: none; overflow: hidden; display: flex; align-items: center; justify-content: center; user-select: none; }
 .touch-indicator { width: 40px; height: 40px; background: radial-gradient(circle, var(--accent) 0%, transparent 70%); border-radius: 50%; position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -50%); transition: opacity 0.2s; }
 .touch-label { color: var(--muted); font-size: 12px; pointer-events: none; text-align: center; }
-
-.overlay { position: fixed; inset: 0; background: rgba(10,10,15,.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 100; padding: 32px; }
-.overlay h2 { font-size: 20px; font-weight: 700; }
-.overlay input { width: 100%; max-width: 300px; padding: 15px; border-radius: 12px; border: 1px solid var(--border); background: #1c1c24; color: white; font-size: 16px; text-align: center; }
-.overlay button { width: 100%; max-width: 300px; padding: 15px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; background: linear-gradient(135deg,var(--accent),var(--accent2)); color: #fff; }
+.connecting-overlay { position: fixed; inset: 0; background: rgba(10,10,15,.95); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 100; padding: 32px; }
+.connecting-overlay p { color: var(--muted); font-size: 13px; text-align: center; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<div class="overlay" id="overlay">
-  <h2>Connect to Host</h2>
-  <input type="text" id="host-id" placeholder="Enter Host ID here">
-  <button onclick="connectToHost()">Connect</button>
-  <p id="overlay-err" style="color:var(--red); font-size:13px; display:none;">Connection failed</p>
+<div class="connecting-overlay" id="connecting-overlay">
+  <div class="spinner"></div>
+  <p id="connecting-msg">Looking up host ID...</p>
 </div>
 
 <div class="header">
@@ -103,7 +95,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 <div class="mode-grid" id="grid-patterns"></div>
 
 <script>
-// ── Wave data ─────────────────────────────────────────────────────────────
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+
 const WAVES_CLASSIC = [
   { name:'Wave 1',  icon:'〰️', vals:[.5] },
   { name:'Wave 2',  icon:'📈', vals:[.75] },
@@ -121,14 +114,47 @@ const WAVES_PATTERNS = [
   { name:'Interval',  icon:'🎯', vals:[0,0,.6,.6,0,0,.6,.6,0,0,.6,.6,0,0,.6,.6] },
 ];
 
-// Original Variables + New Tracking Variables
 let intensity = 50, currentMode = null;
 let peer = new Peer();
 let conn = null;
-
 let isRunning = false;
 let walkingActive = false;
 let lastWalkTime = 0;
+
+// ── Auto-connect from GitHub ID ───────────────────────────────────────────
+async function fetchAndConnect() {
+  try {
+    document.getElementById('connecting-msg').textContent = 'Looking up host ID...';
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error('id.json not found');
+    const data = await res.json();
+    document.getElementById('connecting-msg').textContent = `Connecting to ${data.id}...`;
+    peer.on('open', () => connectToHost(data.id));
+  } catch(e) {
+    document.getElementById('connecting-msg').textContent = 'Could not find host. Is it running?';
+  }
+}
+
+function connectToHost(id) {
+  conn = peer.connect(id);
+  conn.on('open', () => {
+    document.getElementById('connecting-overlay').style.display = 'none';
+    document.getElementById('dot').className = 'dot ok';
+    document.getElementById('status-lbl').textContent = 'Connected';
+  });
+  conn.on('error', () => {
+    document.getElementById('connecting-msg').textContent = 'Connection failed. Retrying...';
+    setTimeout(fetchAndConnect, 3000);
+  });
+  conn.on('close', () => {
+    document.getElementById('dot').className = 'dot err';
+    document.getElementById('status-lbl').textContent = 'Disconnected';
+    document.getElementById('connecting-overlay').style.display = 'flex';
+    setTimeout(fetchAndConnect, 3000);
+  });
+}
+
+fetchAndConnect();
 
 function buildGrids() {
   const gw = document.getElementById('grid-waves');
@@ -150,86 +176,48 @@ function buildGrids() {
 }
 buildGrids();
 
-// ── WebRTC Connection (100% UNTOUCHED FROM ORIGINAL) ──────────────────────
-function connectToHost() {
-  const id = document.getElementById('host-id').value.trim();
-  if (!id) return;
-  
-  conn = peer.connect(id);
-  conn.on('open', () => {
-    document.getElementById('overlay').style.display = 'none';
-    document.getElementById('dot').className = 'dot ok';
-    document.getElementById('status-lbl').textContent = 'Connected';
-  });
-  conn.on('error', () => {
-    document.getElementById('overlay-err').style.display = 'block';
-  });
-  conn.on('close', () => {
-    document.getElementById('dot').className = 'dot err';
-    document.getElementById('status-lbl').textContent = 'Disconnected';
-    document.getElementById('overlay').style.display = 'flex';
-  });
-}
-
-// ── Mode & Play Logic ─────────────────────────────────────────────────────
-function scaleVals(vals, intensity) {
-  return vals.map(v => Math.min(100, v * intensity));
-}
+function scaleVals(vals, intensity) { return vals.map(v => Math.min(100, v * intensity)); }
 
 function sendCurrentMode() {
   if (!conn || !currentMode) return;
-  
   if (currentMode.id === 'constant' || currentMode.id === 'walking') {
     conn.send({ action: 'constant', val: intensity });
   } else {
-    const scaled = scaleVals(currentMode.vals, intensity);
-    conn.send({ action: 'pattern', vals: scaled });
+    conn.send({ action: 'pattern', vals: scaleVals(currentMode.vals, intensity) });
   }
 }
 
 function setPlayState(play) {
   isRunning = play;
   const btn = document.getElementById('play-btn');
-  
   if (isRunning) {
-    btn.innerHTML = '⏹ Stop';
-    btn.style.color = 'var(--red)';
+    btn.innerHTML = '⏹ Stop'; btn.style.color = 'var(--red)';
     sendCurrentMode();
   } else {
-    btn.innerHTML = '▶ Start';
-    btn.style.color = 'var(--green)';
+    btn.innerHTML = '▶ Start'; btn.style.color = 'var(--green)';
     if (conn) conn.send({ action: 'stop' });
   }
 }
 
 function togglePlay() {
-  if (!currentMode) {
-    selectMode('constant'); // Default to constant if nothing selected yet
-  } else {
-    setPlayState(!isRunning);
-  }
+  if (!currentMode) { selectMode('constant'); } else { setPlayState(!isRunning); }
 }
 
 function selectMode(modeId, vals) {
-  // Clear walking sensor if switching away from it
   if (modeId !== 'walking') stopWalking();
-
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('mode-' + modeId)?.classList.add('active');
   currentMode = { id: modeId, vals };
-
-  setPlayState(true); // Auto-start on tap, just like the original code did
+  setPlayState(true);
 }
 
 function onIntensity(val) {
   intensity = parseInt(val);
   document.getElementById('int-display').innerHTML = `${intensity} <span>%</span>`;
-  document.getElementById('int-slider').value = intensity; // Keep slider synced
-  
+  document.getElementById('int-slider').value = intensity;
   if (isRunning) sendCurrentMode();
 }
 
-// ── Touch Control ─────────────────────────────────────────────────────────
 const touchPad = document.getElementById('touch-pad');
 const touchInd = document.getElementById('touch-indicator');
 
@@ -237,17 +225,12 @@ function handleTouch(e) {
   e.preventDefault();
   const touch = e.touches[0] || e.changedTouches[0];
   const rect = touchPad.getBoundingClientRect();
-  
   let x = Math.max(0, Math.min(touch.clientX - rect.left, rect.width));
   let y = Math.max(0, Math.min(touch.clientY - rect.top, rect.height));
-
   touchInd.style.opacity = 1;
   touchInd.style.left = x + 'px';
   touchInd.style.top = y + 'px';
-
-  // Map vertical position to intensity
-  const newIntensity = Math.round((1 - (y / rect.height)) * 100);
-  onIntensity(newIntensity);
+  onIntensity(Math.round((1 - (y / rect.height)) * 100));
 }
 
 touchPad.addEventListener('touchstart', (e) => {
@@ -258,62 +241,38 @@ touchPad.addEventListener('touchstart', (e) => {
 touchPad.addEventListener('touchmove', handleTouch);
 touchPad.addEventListener('touchend', () => { touchInd.style.opacity = 0; });
 
-
-// ── Walking (Accelerometer) Control ───────────────────────────────────────
 async function toggleWalking() {
-  if (walkingActive) {
-    stopWalking();
-    selectMode('constant');
-    return;
-  }
-
-  // Request permission for iOS devices
+  if (walkingActive) { stopWalking(); selectMode('constant'); return; }
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     try {
       const permission = await DeviceMotionEvent.requestPermission();
       if (permission !== 'granted') return alert('Motion permission denied.');
     } catch (e) { console.error(e); }
   }
-  
   walkingActive = true;
-  selectMode('walking'); 
+  selectMode('walking');
   window.addEventListener('devicemotion', handleWalk);
 }
 
-function stopWalking() {
-  walkingActive = false;
-  window.removeEventListener('devicemotion', handleWalk);
-}
+function stopWalking() { walkingActive = false; window.removeEventListener('devicemotion', handleWalk); }
 
 function handleWalk(event) {
   if (!walkingActive || !isRunning) return;
-  
-  // Throttle updates
   const now = Date.now();
   if (now - lastWalkTime < 100) return;
-  
   let accel = event.accelerationIncludingGravity;
   if (!accel) return;
-
-  // Calculate bounce magnitude
   let magnitude = Math.sqrt(accel.x**2 + accel.y**2 + accel.z**2);
-  let movement = Math.max(0, magnitude - 9.8); // Subtract gravity
-  
-  // Map force to intensity (0 to 100%)
-  const newIntensity = Math.min(100, Math.round((movement / 10) * 100));
-  
-  onIntensity(newIntensity);
+  let movement = Math.max(0, magnitude - 9.8);
+  onIntensity(Math.min(100, Math.round((movement / 10) * 100)));
   lastWalkTime = now;
 }
 
-// ── Wake lock ─────────────────────────────────────────────────────────────
 async function keepAwake() {
   try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(e) {}
 }
 keepAwake();
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') keepAwake();
-});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
 </script>
 </body>
 </html>

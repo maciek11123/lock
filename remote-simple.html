@@ -13,12 +13,6 @@ body {
   min-height: 100vh; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 24px; gap: 14px;
 }
-input {
-  width: 100%; max-width: 320px; padding: 14px; border-radius: 12px;
-  border: 1px solid #2a2a32; background: #13131a; color: #fff;
-  font-size: 16px; text-align: center; outline: none;
-}
-input:focus { border-color: #c084fc; }
 button {
   width: 100%; max-width: 320px; padding: 14px; border-radius: 12px;
   border: none; font-size: 15px; font-weight: 700; cursor: pointer;
@@ -26,7 +20,6 @@ button {
 }
 button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn-connect { background: linear-gradient(135deg, #c084fc, #818cf8); color: #fff; }
 .btn-send    { background: linear-gradient(135deg, #34d399, #059669); color: #fff; }
 .btn-stop    { background: #1c1c24; color: #f87171; border: 1px solid #3f3f46; }
 .slider-row  { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 6px; }
@@ -36,15 +29,13 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 .status { font-size: 12px; color: #555; text-align: center; }
 .status.ok  { color: #4ade80; }
 .status.err { color: #f87171; }
+.status.wait { color: #facc15; }
 </style>
 </head>
 <body>
 
 <div class="big" id="big-val">50</div>
-
-<input type="text" id="host-id" placeholder="Paste Host ID here" />
-<button class="btn-connect" id="btn-connect" onclick="toggleConnect()">Connect</button>
-<p class="status" id="status">Disconnected</p>
+<p class="status wait" id="status">Looking up host...</p>
 
 <div class="slider-row">
   <div class="slider-label"><span>Intensity</span><span id="pct">50%</span></div>
@@ -55,6 +46,8 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 <button class="btn-stop" id="btn-stop" onclick="sendStop()" disabled>⏹ Stop</button>
 
 <script>
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+
 let conn = null;
 let intensity = 50;
 const peer = new Peer();
@@ -68,28 +61,28 @@ function setStatus(msg, cls) {
 function setConnected(yes) {
   document.getElementById('btn-send').disabled = !yes;
   document.getElementById('btn-stop').disabled = !yes;
-  document.getElementById('btn-connect').textContent = yes ? 'Disconnect' : 'Connect';
-  document.getElementById('btn-connect').style.background = yes
-    ? 'linear-gradient(135deg,#f87171,#dc2626)'
-    : 'linear-gradient(135deg,#c084fc,#818cf8)';
 }
 
-function toggleConnect() {
-  if (conn) {
-    conn.close();
-    conn = null;
-    setConnected(false);
-    setStatus('Disconnected');
-    return;
+async function fetchAndConnect() {
+  try {
+    setStatus('Looking up host...', 'wait');
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error('id.json not found');
+    const data = await res.json();
+    setStatus(`Connecting to ${data.id}...`, 'wait');
+    peer.on('open', () => {
+      conn = peer.connect(data.id);
+      conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
+      conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
+      conn.on('close', () => { setConnected(false); setStatus('Disconnected — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
+    });
+  } catch(e) {
+    setStatus('Host not found. Retrying...', 'err');
+    setTimeout(fetchAndConnect, 5000);
   }
-  const id = document.getElementById('host-id').value.trim();
-  if (!id) return;
-  setStatus('Connecting...');
-  conn = peer.connect(id);
-  conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
-  conn.on('error', () => { setConnected(false); setStatus('Connection failed', 'err'); conn = null; });
-  conn.on('close', () => { setConnected(false); setStatus('Disconnected', 'err'); conn = null; });
 }
+
+fetchAndConnect();
 
 function onSlider(val) {
   intensity = parseInt(val);
@@ -97,19 +90,10 @@ function onSlider(val) {
   document.getElementById('big-val').textContent = intensity;
 }
 
-function sendConstant() {
-  if (!conn) return;
-  conn.send({ action: 'constant', val: intensity });
-}
+function sendConstant() { if (conn) conn.send({ action: 'constant', val: intensity }); }
+function sendStop() { if (conn) conn.send({ action: 'stop' }); }
 
-function sendStop() {
-  if (!conn) return;
-  conn.send({ action: 'stop' });
-}
-
-// Still expose API for console use
 window.RemoteAPI = {
-  connect: (id) => { document.getElementById('host-id').value = id; toggleConnect(); },
   sendConstant: (val) => { onSlider(val); sendConstant(); },
   sendPattern: (vals) => { if (conn) conn.send({ action: 'pattern', vals }); },
   sendStop
