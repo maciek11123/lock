@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>AI Remote — Claude</title>
+<title>AI Remote</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -152,10 +152,17 @@ select.setup-input { cursor: pointer; }
 
 <div class="setup-panel" id="setup-panel">
   <div class="setup-row">
+    <span class="setup-label">Venice API Key</span>
+    <input class="setup-input" id="api-key-input" type="password" placeholder="VENICE_INFERENCE_KEY_..." autocomplete="off">
+  </div>
+  <div class="setup-row">
     <span class="setup-label">Model</span>
     <select class="setup-input" id="model-select">
-      <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 ★</option>
-      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (faster)</option>
+      <option value="venice-uncensored-role-play" selected>venice-uncensored-role-play ★</option>
+      <option value="venice-uncensored-1-2">venice-uncensored-1-2</option>
+      <option value="llama-3.3-70b">llama-3.3-70b</option>
+      <option value="hermes-3-llama-3.1-405b">hermes-3-llama-3.1-405b</option>
+      <option value="qwen3-235b-a22b-instruct-2507">qwen3-235b (large)</option>
     </select>
   </div>
   <div class="setup-row">
@@ -200,6 +207,8 @@ const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.j
   if (savedPrompt) document.getElementById('system-prompt').value = savedPrompt;
   const savedModel = localStorage.getItem('ai_remote_model');
   if (savedModel) document.getElementById('model-select').value = savedModel;
+  const savedKey = localStorage.getItem('venice_api_key');
+  if (savedKey) document.getElementById('api-key-input').value = savedKey;
 })();
 
 document.getElementById('system-prompt').addEventListener('change', () => {
@@ -207,6 +216,9 @@ document.getElementById('system-prompt').addEventListener('change', () => {
 });
 document.getElementById('model-select').addEventListener('change', () => {
   localStorage.setItem('ai_remote_model', document.getElementById('model-select').value);
+});
+document.getElementById('api-key-input').addEventListener('change', () => {
+  localStorage.setItem('venice_api_key', document.getElementById('api-key-input').value.trim());
 });
 
 // ── Setup toggle ──
@@ -308,12 +320,14 @@ function stripCommand(text) {
 }
 
 async function callVenice(userMsg) {
+  const apiKey = document.getElementById('api-key-input').value.trim();
   const model = document.getElementById('model-select').value;
   const systemPrompt = document.getElementById('system-prompt').value;
 
+  if (!apiKey) { addNote('⚠️ No API key — paste your Venice key in settings above.'); return; }
+
   history.push({ role: 'user', content: userMsg });
 
-  // Thinking indicator
   const area = document.getElementById('chat-area');
   const thinking = document.createElement('div');
   thinking.className = 'msg thinking';
@@ -322,14 +336,20 @@ async function callVenice(userMsg) {
   area.scrollTop = area.scrollHeight;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://api.venice.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         model,
         max_tokens: 400,
-        system: systemPrompt,
-        messages: history
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...history
+        ],
+        venice_parameters: { include_venice_system_prompt: false }
       })
     });
 
@@ -337,13 +357,13 @@ async function callVenice(userMsg) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      addNote('⚠️ API error: ' + (err.error?.message || res.status));
+      addNote('⚠️ Venice error: ' + (err.error?.message || res.status));
       history.pop();
       return;
     }
 
     const data = await res.json();
-    const reply = data.content?.[0]?.text || '';
+    const reply = data.choices?.[0]?.message?.content || '';
 
     history.push({ role: 'assistant', content: reply });
 
@@ -359,6 +379,8 @@ async function callVenice(userMsg) {
     }
 
     addMsg('ai', displayText || '...', cmdLabel);
+
+    localStorage.setItem('venice_api_key', apiKey);
 
   } catch(e) {
     thinking.remove();
