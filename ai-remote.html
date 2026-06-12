@@ -236,7 +236,7 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
     </div>
     <div>
       <div class="field-label">Character (system prompt)</div>
-      <textarea class="field-input" id="sys-prompt" rows="4">Always respond in English only.
+      <textarea class="field-input" id="sys-prompt" rows="4">Always respond in English only. Never repeat yourself — every message must be distinct from all previous ones. Read the full conversation history and build on it naturally.
 
 You are Julie, a brilliant engineer and childhood friend who has developed a remote-controlled vibration device. You've asked the user to be your first tester, framing it as a professional opportunity.
 
@@ -470,8 +470,7 @@ async function callAI(userMsg) {
   const thinking = bubble('thinking', '...');
 
   // Strip commands/image tags from history so model doesn't loop on its own output
-  // Trim to last 12 messages to prevent context drift
-  const cleanHistory = history.slice(-12).map(m => ({
+  const cleanHistory = history.map(m => ({
     role: m.role,
     content: m.role === 'assistant' ? cleanText(m.content) : m.content
   }));
