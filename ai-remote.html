@@ -304,10 +304,23 @@ function toggleSettings() {
 // ── PeerJS ──
 let conn = null;
 const peer = new Peer();
+let peerReady = false;
+peer.on('open', () => { peerReady = true; });
 
 function setConn(state, label) {
   $('dot').className = 'dot ' + state;
   $('conn-lbl').textContent = label;
+}
+
+function connectToHost(id) {
+  conn = peer.connect(id);
+  conn.on('open', () => {
+    setConn('ok', 'Connected');
+    $('send-btn').disabled = false;
+    note('Host connected. Device ready.');
+  });
+  conn.on('error', () => { setConn('err', 'Failed'); setTimeout(findHost, 3000); });
+  conn.on('close', () => { setConn('err', 'Lost'); $('send-btn').disabled = true; setTimeout(findHost, 3000); });
 }
 
 async function findHost() {
@@ -316,16 +329,12 @@ async function findHost() {
     const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
     if (!res.ok) throw new Error();
     const { id } = await res.json();
-    peer.on('open', () => {
-      conn = peer.connect(id);
-      conn.on('open', () => {
-        setConn('ok', 'Connected');
-        $('send-btn').disabled = false;
-        note('Host connected. Device ready.');
-      });
-      conn.on('error', () => { setConn('err', 'Failed'); setTimeout(findHost, 3000); });
-      conn.on('close', () => { setConn('err', 'Lost'); $('send-btn').disabled = true; setTimeout(findHost, 3000); });
-    });
+    // If peer is already open (e.g. after refresh), connect immediately
+    if (peerReady) {
+      connectToHost(id);
+    } else {
+      peer.on('open', () => connectToHost(id));
+    }
   } catch(e) {
     setConn('err', 'No host');
     setTimeout(findHost, 5000);
