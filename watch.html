@@ -183,14 +183,7 @@ async function fetchAndConnect() {
 
 fetchAndConnect();
 
-const MAX_VAL = 35; // UI shows 0-100 but actual output capped at 35%
-function cap(v) { return Math.round(v * MAX_VAL / 100); }
-function send(msg) {
-  if (conn && conn.open) {
-    if (msg.action === 'constant') msg = { ...msg, val: cap(msg.val) };
-    conn.send(msg);
-  }
-}
+function send(msg) { if (conn && conn.open) conn.send(msg); }
 
 function turnOn() {
   isOn = true;
