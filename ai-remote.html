@@ -299,7 +299,7 @@ RULES:
 </div>
 
 <script>
-const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
+const HARDCODED_HOST_ID = 'locks-mac-home';
 
 // ── Persist settings ──
 const $ = id => document.getElementById(id);
@@ -345,11 +345,11 @@ function connectToHost(id) {
 }
 
 function findHost() {
-  setConn('wait', 'Connecting to LOCKS-MAC-HOME...');
+  setConn('wait', 'Connecting to locks-mac-home...');
   if (peerReady) {
-    connectToHost('LOCKS-MAC-HOME');
+    connectToHost('locks-mac-home');
   } else {
-    peer.on('open', () => connectToHost('LOCKS-MAC-HOME'));
+    peer.on('open', () => connectToHost('locks-mac-home'));
   }
 }
 findHost();
