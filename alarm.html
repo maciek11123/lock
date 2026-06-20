@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Morning Alarm</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0d0d0f; color: #e8e8f0;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-start;
+    padding: 24px 16px 40px; gap: 16px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin-top: 8px; }
+  .card {
+    background: #18181c; border: 1px solid #2a2a32; border-radius: 16px;
+    padding: 20px; width: 100%; max-width: 360px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .card-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #666; text-transform: uppercase; }
+
+  /* Status dot rows */
+  .status-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .status-label { color: #666; }
+  .status-value { font-weight: 500; font-size: 12px; font-family: monospace; }
+  .ok { color: #4ade80; } .err { color: #f87171; } .wait { color: #facc15; } .info { color: #c084fc; }
+
+  /* Big clock */
+  .big-clock {
+    font-size: 52px; font-weight: 700; text-align: center; letter-spacing: .03em;
+    color: #e8e8f0; font-variant-numeric: tabular-nums;
+    margin: 4px 0;
+  }
+  .alarm-time-display {
+    text-align: center; font-size: 15px; color: #60a5fa; font-weight: 600;
+    min-height: 22px;
+  }
+
+  /* Time picker */
+  .time-picker {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .time-picker input[type="number"] {
+    background: #0d0d0f; border: 1px solid #3f3f46; border-radius: 10px;
+    color: #e8e8f0; font-size: 32px; font-weight: 700;
+    width: 72px; text-align: center; padding: 10px 4px;
+    -moz-appearance: textfield; outline: none;
+  }
+  .time-picker input::-webkit-inner-spin-button,
+  .time-picker input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .time-sep { font-size: 32px; font-weight: 700; color: #555; line-height: 1; }
+
+  /* AM/PM toggle */
+  .ampm-toggle {
+    display: flex; border: 1px solid #3f3f46; border-radius: 10px; overflow: hidden;
+    margin: 0 auto; width: fit-content;
+  }
+  .ampm-toggle button {
+    background: none; border: none; color: #888; font-size: 14px; font-weight: 700;
+    padding: 8px 18px; cursor: pointer; transition: all .15s;
+  }
+  .ampm-toggle button.active { background: #7c3aed; color: #fff; }
+
+  /* Ramp settings */
+  .setting-row { display: flex; flex-direction: column; gap: 6px; }
+  .setting-label { font-size: 12px; color: #888; display: flex; justify-content: space-between; }
+  .setting-label span { color: #c084fc; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; height: 22px; }
+
+  /* Buttons */
+  .btn {
+    width: 100%; padding: 15px; border-radius: 12px; border: none;
+    font-size: 15px; font-weight: 700; cursor: pointer; transition: transform .1s;
+    letter-spacing: .02em;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-set   { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; }
+  .btn-cancel { background: #1c1c20; color: #f87171; border: 1px solid #3f3f46; }
+  .btn-snooze { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+  .btn-stop   { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: #fff; }
+
+  /* Countdown / ringing banner */
+  .banner {
+    display: none; text-align: center; padding: 14px;
+    border-radius: 14px; font-size: 15px; font-weight: 600; width: 100%; max-width: 360px;
+  }
+  .banner.countdown { background: #1a1a28; border: 1px solid #4f46e5; color: #818cf8; display: block; }
+  .banner.ringing   { background: #1f1200; border: 1px solid #f59e0b; color: #fbbf24; display: block; animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
+
+  .snooze-row { display: flex; gap: 10px; width: 100%; max-width: 360px; }
+  .snooze-row .btn { flex: 1; }
+
+  .log-box {
+    background: #18181c; border: 1px solid #2a2a32; border-radius: 12px;
+    padding: 10px; width: 100%; max-width: 360px; height: 120px;
+    overflow-y: auto; font-family: monospace; font-size: 10px; line-height: 1.6; color: #555;
+  }
+  .log-entry.ok { color: #4ade80; } .log-entry.err { color: #f87171; } .log-entry.info { color: #60a5fa; }
+
+  /* Section hidden states */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>⏰ Morning Alarm</h1>
+
+<!-- Connection status -->
+<div class="card">
+  <div class="card-title">Connection</div>
+  <div class="status-row">
+    <span class="status-label">Host</span>
+    <span class="status-value wait" id="conn-status">connecting...</span>
+  </div>
+</div>
+
+<!-- Clock -->
+<div class="card" style="align-items:center;">
+  <div class="card-title">Current Time</div>
+  <div class="big-clock" id="clock">--:--:--</div>
+  <div class="alarm-time-display" id="alarm-display"></div>
+</div>
+
+<!-- Alarm setter -->
+<div class="card" id="setter-card">
+  <div class="card-title">Set Alarm</div>
+  <div class="time-picker">
+    <input type="number" id="h-input" min="1" max="12" value="7" placeholder="7">
+    <span class="time-sep">:</span>
+    <input type="number" id="m-input" min="0" max="59" value="00" placeholder="00">
+  </div>
+  <div class="ampm-toggle">
+    <button id="am-btn" class="active" onclick="setAMPM('AM')">AM</button>
+    <button id="pm-btn"              onclick="setAMPM('PM')">PM</button>
+  </div>
+
+  <div class="setting-row">
+    <div class="setting-label">Ramp duration <span id="ramp-label">5 min</span></div>
+    <input type="range" id="ramp-range" min="1" max="15" value="5" oninput="updateLabels()">
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Start intensity <span id="start-label">10%</span></div>
+    <input type="range" id="start-range" min="1" max="40" value="10" oninput="updateLabels()">
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Peak intensity <span id="peak-label">60%</span></div>
+    <input type="range" id="peak-range" min="10" max="100" value="60" oninput="updateLabels()">
+  </div>
+
+  <button class="btn btn-set" id="set-btn" onclick="setAlarm()">Set Alarm</button>
+</div>
+
+<!-- Countdown banner -->
+<div class="banner countdown" id="countdown-banner"></div>
+
+<!-- Cancel button (shown while waiting) -->
+<button class="btn btn-cancel hidden" id="cancel-btn" onclick="cancelAlarm()">Cancel Alarm</button>
+
+<!-- Ringing banner + snooze/stop -->
+<div class="banner ringing hidden" id="ringing-banner">🔔 ALARM RINGING — Wake Up!</div>
+<div class="snooze-row hidden" id="snooze-row">
+  <button class="btn btn-snooze" onclick="snooze()">💤 Snooze 5m</button>
+  <button class="btn btn-stop"   onclick="stopAlarm()">⏹ Stop</button>
+</div>
+
+<div class="log-box" id="log"></div>
+
+<script>
+// ── PeerJS connection to host ────────────────────────────────────────
+const HOST_ID = 'LOCKS-7B2K';
+let peer, conn, peerReady = false;
+
+function initPeer() {
+  peer = new Peer();
+  peer.on('open', () => {
+    peerReady = true;
+    connectToHost();
+  });
+  peer.on('error', e => { log('Peer error: ' + e.message, 'err'); });
+}
+
+function connectToHost() {
+  if (!peerReady) return;
+  setConnStatus('connecting...', 'wait');
+  conn = peer.connect(HOST_ID, { reliable: true });
+  conn.on('open', () => { setConnStatus('connected ✓', 'ok'); log('Host connected', 'ok'); });
+  conn.on('close', () => { setConnStatus('disconnected', 'err'); log('Host disconnected — retrying...', 'err'); setTimeout(connectToHost, 3000); });
+  conn.on('error', () => { setConnStatus('error', 'err'); setTimeout(connectToHost, 3000); });
+}
+
+function send(obj) {
+  if (conn && conn.open) { conn.send(obj); return true; }
+  log('Not connected to host', 'err'); return false;
+}
+
+function setConnStatus(txt, cls) {
+  const el = document.getElementById('conn-status');
+  el.textContent = txt; el.className = 'status-value ' + cls;
+}
+
+// ── Live clock ───────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-CA', { hour12: false });
+  checkAlarm(now);
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── AM/PM toggle ─────────────────────────────────────────────────────
+let ampm = 'AM';
+function setAMPM(v) {
+  ampm = v;
+  document.getElementById('am-btn').classList.toggle('active', v === 'AM');
+  document.getElementById('pm-btn').classList.toggle('active', v === 'PM');
+}
+
+// ── Label updates ────────────────────────────────────────────────────
+function updateLabels() {
+  document.getElementById('ramp-label').textContent  = document.getElementById('ramp-range').value + ' min';
+  document.getElementById('start-label').textContent = document.getElementById('start-range').value + '%';
+  document.getElementById('peak-label').textContent  = document.getElementById('peak-range').value + '%';
+}
+updateLabels();
+
+// ── Alarm state ──────────────────────────────────────────────────────
+let alarmH = null, alarmM = null; // 24h
+let alarmActive = false, ringing = false, rampTimer = null;
+
+function setAlarm() {
+  let h = parseInt(document.getElementById('h-input').value);
+  const m = parseInt(document.getElementById('m-input').value);
+  if (isNaN(h) || isNaN(m) || h < 1 || h > 12 || m < 0 || m > 59) {
+    log('Invalid time', 'err'); return;
+  }
+  // convert to 24h
+  if (ampm === 'AM') { if (h === 12) h = 0; }
+  else               { if (h !== 12) h += 12; }
+  alarmH = h; alarmM = m;
+  alarmActive = true; ringing = false;
+
+  const pad = n => String(n).padStart(2,'0');
+  const label = document.getElementById('h-input').value + ':' + pad(m) + ' ' + ampm;
+  document.getElementById('alarm-display').textContent = '⏰ Alarm set for ' + label;
+  log('Alarm set for ' + label, 'ok');
+
+  // UI transitions
+  document.getElementById('setter-card').classList.add('hidden');
+  document.getElementById('cancel-btn').classList.remove('hidden');
+  document.getElementById('countdown-banner').classList.add('countdown');
+}
+
+function cancelAlarm() {
+  alarmActive = false; ringing = false;
+  clearTimeout(rampTimer);
+  send({ action: 'stop' });
+  resetUI();
+  log('Alarm cancelled', 'info');
+}
+
+function resetUI() {
+  document.getElementById('setter-card').classList.remove('hidden');
+  document.getElementById('cancel-btn').classList.add('hidden');
+  document.getElementById('countdown-banner').classList.remove('countdown');
+  document.getElementById('countdown-banner').textContent = '';
+  document.getElementById('ringing-banner').classList.add('hidden');
+  document.getElementById('snooze-row').classList.add('hidden');
+  document.getElementById('alarm-display').textContent = '';
+}
+
+// ── Check alarm each second ──────────────────────────────────────────
+function checkAlarm(now) {
+  if (!alarmActive) return;
+  const h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+
+  if (!ringing) {
+    // Countdown display
+    const alarmTotalMins = alarmH * 60 + alarmM;
+    const nowTotalMins   = h * 60 + m;
+    let diff = alarmTotalMins - nowTotalMins;
+    if (diff < 0) diff += 24 * 60;
+    const dh = Math.floor(diff / 60), dm = diff % 60;
+    const txt = dh > 0 ? `${dh}h ${dm}m` : `${dm}m ${60-s}s`;
+    document.getElementById('countdown-banner').textContent = '⏳ Rings in ' + txt;
+
+    // Fire!
+    if (h === alarmH && m === alarmM && s === 0) startRamp();
+  }
+}
+
+function startRamp() {
+  if (ringing) return;
+  ringing = true;
+  log('🔔 Alarm firing — ramping up!', 'ok');
+
+  // UI
+  document.getElementById('cancel-btn').classList.add('hidden');
+  document.getElementById('countdown-banner').classList.remove('countdown');
+  document.getElementById('countdown-banner').textContent = '';
+  document.getElementById('ringing-banner').classList.remove('hidden');
+  document.getElementById('snooze-row').classList.remove('hidden');
+
+  const rampMins  = parseInt(document.getElementById('ramp-range').value);
+  const startPct  = parseInt(document.getElementById('start-range').value);
+  const peakPct   = parseInt(document.getElementById('peak-range').value);
+  const steps     = rampMins * 60; // one step per second
+  let step = 0;
+
+  function tick() {
+    if (!ringing) return;
+    const frac = steps > 0 ? Math.min(step / steps, 1) : 1;
+    const intensity = Math.round(startPct + (peakPct - startPct) * frac);
+    send({ action: 'constant', val: intensity });
+    step++;
+    if (step <= steps) rampTimer = setTimeout(tick, 1000);
+    else { log('Ramp complete — holding peak ' + peakPct + '%', 'info'); holdPeak(peakPct); }
+  }
+  tick();
+}
+
+function holdPeak(pct) {
+  // Keep re-sending every 10s to maintain command
+  if (!ringing) return;
+  send({ action: 'constant', val: pct });
+  rampTimer = setTimeout(() => holdPeak(pct), 10000);
+}
+
+function stopAlarm() {
+  ringing = false; alarmActive = false;
+  clearTimeout(rampTimer);
+  send({ action: 'stop' });
+  log('Alarm stopped', 'info');
+  resetUI();
+}
+
+function snooze() {
+  ringing = false;
+  clearTimeout(rampTimer);
+  send({ action: 'stop' });
+  log('Snoozed 5 minutes', 'info');
+
+  // hide ringing UI, show countdown again
+  document.getElementById('ringing-banner').classList.add('hidden');
+  document.getElementById('snooze-row').classList.add('hidden');
+  document.getElementById('cancel-btn').classList.remove('hidden');
+  document.getElementById('countdown-banner').classList.add('countdown');
+
+  // Set alarm for 5 minutes from now
+  const now = new Date(Date.now() + 5 * 60 * 1000);
+  alarmH = now.getHours(); alarmM = now.getMinutes();
+  alarmActive = true;
+  document.getElementById('alarm-display').textContent = '💤 Snoozed — rings at ' +
+    now.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+// ── Log ──────────────────────────────────────────────────────────────
+function log(msg, type = '') {
+  const box = document.getElementById('log');
+  const d = document.createElement('div');
+  d.className = 'log-entry ' + type;
+  d.textContent = `[${new Date().toLocaleTimeString('en-CA',{hour12:false})}] ${msg}`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── H/M input convenience (zero-pad minutes on blur) ─────────────────
+document.getElementById('m-input').addEventListener('blur', function() {
+  this.value = String(this.value).padStart(2, '0');
+});
+
+// Boot
+initPeer();
+</script>
+</body>
+</html>
