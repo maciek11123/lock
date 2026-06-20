@@ -64,10 +64,11 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 </div>
 
 <button class="btn-send" id="btn-send" onclick="sendConstant()" disabled>⚡ Send</button>
+<div id="batt-indicator" style="position:fixed;top:12px;right:12px;font-size:12px;color:#a78bfa;opacity:0;transition:opacity .5s;background:#13131a;padding:4px 10px;border-radius:20px;border:1px solid #2a2a3a">🔋</div>
 <button class="btn-stop" id="btn-stop" onclick="sendStop()" disabled>⏹ Stop</button>
 
 <script>
-const HARDCODED_HOST_ID = 'locks-mac-home';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
 
 let conn = null;
 let intensity = 50;
@@ -84,14 +85,30 @@ function setConnected(yes) {
   document.getElementById('btn-stop').disabled = !yes;
 }
 
-function fetchAndConnect() {
-  setStatus('Connecting to locks-mac-home...', 'wait');
-  peer.on('open', () => {
-    conn = peer.connect('locks-mac-home');
-    conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
-    conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
-    conn.on('close', () => { setConnected(false); setStatus('Disconnected — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
-  });
+async function fetchAndConnect() {
+  try {
+    setStatus('Looking up host...', 'wait');
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error('id.json not found');
+    const data = await res.json();
+    setStatus(`Connecting to ${data.id}...`, 'wait');
+    peer.on('open', () => {
+      conn = peer.connect(data.id);
+      conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
+      conn.on('data', d => {
+        if (d && d.type === 'battery') {
+          const icon = d.pct > 70 ? '🔋' : d.pct > 30 ? '🪫' : '⚠️';
+          const el = document.getElementById('batt-indicator');
+          if (el) { el.textContent = `${icon} ${d.pct}%`; el.style.opacity = '1'; }
+        }
+      });
+      conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
+      conn.on('close', () => { setConnected(false); setStatus('Disconnected — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
+    });
+  } catch(e) {
+    setStatus('Host not found. Retrying...', 'err');
+    setTimeout(fetchAndConnect, 5000);
+  }
 }
 
 fetchAndConnect();
