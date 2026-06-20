@@ -67,7 +67,7 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 <button class="btn-stop" id="btn-stop" onclick="sendStop()" disabled>⏹ Stop</button>
 
 <script>
-const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
 
 let conn = null;
 let intensity = 50;
@@ -84,23 +84,14 @@ function setConnected(yes) {
   document.getElementById('btn-stop').disabled = !yes;
 }
 
-async function fetchAndConnect() {
-  try {
-    setStatus('Looking up host...', 'wait');
-    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
-    if (!res.ok) throw new Error('id.json not found');
-    const data = await res.json();
-    setStatus(`Connecting to ${data.id}...`, 'wait');
-    peer.on('open', () => {
-      conn = peer.connect(data.id);
-      conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
-      conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
-      conn.on('close', () => { setConnected(false); setStatus('Disconnected — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
-    });
-  } catch(e) {
-    setStatus('Host not found. Retrying...', 'err');
-    setTimeout(fetchAndConnect, 5000);
-  }
+function fetchAndConnect() {
+  setStatus('Connecting to LOCKS-MAC-HOME...', 'wait');
+  peer.on('open', () => {
+    conn = peer.connect('LOCKS-MAC-HOME');
+    conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
+    conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
+    conn.on('close', () => { setConnected(false); setStatus('Disconnected — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
+  });
 }
 
 fetchAndConnect();
