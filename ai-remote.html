@@ -299,7 +299,7 @@ RULES:
 </div>
 
 <script>
-const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
 
 // ── Persist settings ──
 const $ = id => document.getElementById(id);
@@ -344,21 +344,12 @@ function connectToHost(id) {
   conn.on('close', () => { setConn('err', 'Lost'); $('send-btn').disabled = true; setTimeout(findHost, 3000); });
 }
 
-async function findHost() {
-  try {
-    setConn('wait', 'Finding host...');
-    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
-    if (!res.ok) throw new Error();
-    const { id } = await res.json();
-    // If peer is already open (e.g. after refresh), connect immediately
-    if (peerReady) {
-      connectToHost(id);
-    } else {
-      peer.on('open', () => connectToHost(id));
-    }
-  } catch(e) {
-    setConn('err', 'No host');
-    setTimeout(findHost, 5000);
+function findHost() {
+  setConn('wait', 'Connecting to LOCKS-MAC-HOME...');
+  if (peerReady) {
+    connectToHost('LOCKS-MAC-HOME');
+  } else {
+    peer.on('open', () => connectToHost('LOCKS-MAC-HOME'));
   }
 }
 findHost();
