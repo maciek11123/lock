@@ -1,10 +1,11 @@
-const CACHE = 'lock-v3';
+const CACHE = 'lock-v4';
 const URLS = [
   '/lock/host.html',
   '/lock/remote-full.html',
   '/lock/remote-simple.html',
   '/lock/ai-remote.html',
-  '/lock/watch.html'
+  '/lock/watch.html',
+  '/lock/alarm.html'
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(URLS)));
