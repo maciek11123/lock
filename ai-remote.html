@@ -231,7 +231,7 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
       <span id="conn-lbl">Connecting</span>
     </div>
   </div>
-  <button class="settings-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">⚙</button>
+  <span id="batt-indicator" style="font-size:11px;color:#a78bfa;opacity:0;transition:opacity .5s;padding:4px 8px;background:#1a1a2e;border-radius:20px;border:1px solid #2a2a3a;margin-right:6px">🔋</span><button class="settings-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">⚙</button>
 </div>
 
 <!-- Settings drawer (hidden by default) -->
@@ -299,7 +299,7 @@ RULES:
 </div>
 
 <script>
-const HARDCODED_HOST_ID = 'locks-mac-home';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
 
 // ── Persist settings ──
 const $ = id => document.getElementById(id);
@@ -340,16 +340,32 @@ function connectToHost(id) {
     $('send-btn').disabled = false;
     note('Host connected. Device ready.');
   });
+  conn.on('data', d => {
+    if (d && d.type === 'battery') {
+      const icon = d.pct > 70 ? '🔋' : d.pct > 30 ? '🪫' : '⚠️';
+      const el = document.getElementById('batt-indicator');
+      if (el) { el.textContent = `${icon} ${d.pct}%`; el.style.opacity='1'; }
+    }
+  });
   conn.on('error', () => { setConn('err', 'Failed'); setTimeout(findHost, 3000); });
   conn.on('close', () => { setConn('err', 'Lost'); $('send-btn').disabled = true; setTimeout(findHost, 3000); });
 }
 
-function findHost() {
-  setConn('wait', 'Connecting to locks-mac-home...');
-  if (peerReady) {
-    connectToHost('locks-mac-home');
-  } else {
-    peer.on('open', () => connectToHost('locks-mac-home'));
+async function findHost() {
+  try {
+    setConn('wait', 'Finding host...');
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error();
+    const { id } = await res.json();
+    // If peer is already open (e.g. after refresh), connect immediately
+    if (peerReady) {
+      connectToHost(id);
+    } else {
+      peer.on('open', () => connectToHost(id));
+    }
+  } catch(e) {
+    setConn('err', 'No host');
+    setTimeout(findHost, 5000);
   }
 }
 findHost();
