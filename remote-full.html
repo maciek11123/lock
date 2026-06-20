@@ -40,6 +40,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 .mode-grid { width: 100%; max-width: 420px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .mode-btn { padding: 12px 6px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; transition: all .15s; line-height: 1.3; }
 .mode-btn.active { background: linear-gradient(135deg,rgba(192,132,252,.2),rgba(129,140,248,.2)); border-color: var(--accent); color: var(--accent); }
+.mode-btn.running { background: linear-gradient(135deg,rgba(247,71,72,.15),rgba(192,132,252,.15)); border-color: var(--red); color: var(--red); }
 .mode-icon { font-size: 18px; display: block; margin-bottom: 3px; }
 .touch-pad { width: 100%; max-width: 420px; height: 120px; background: #15151e; border: 1px solid var(--border); border-radius: 14px; position: relative; touch-action: none; overflow: hidden; display: flex; align-items: center; justify-content: center; user-select: none; }
 .touch-indicator { width: 40px; height: 40px; background: radial-gradient(circle, var(--accent) 0%, transparent 70%); border-radius: 50%; position: absolute; pointer-events: none; opacity: 0; transform: translate(-50%, -50%); transition: opacity 0.2s; }
@@ -48,28 +49,36 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 .connecting-overlay p { color: var(--muted); font-size: 13px; text-align: center; }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* Timer row */
+.timer-row { width: 100%; max-width: 420px; display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.timer-btn { padding: 12px 4px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; transition: all .15s; }
+.timer-btn:active { transform: scale(.96); }
+.timer-btn.active { background: linear-gradient(135deg,rgba(192,132,252,.2),rgba(129,140,248,.2)); border-color: var(--accent); color: var(--accent); }
+/* Shake btn */
+.shake-btn { width: 100%; max-width: 420px; padding: 13px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; transition: all .15s; }
+.shake-btn.active { background: linear-gradient(135deg,rgba(52,211,153,.15),rgba(129,140,248,.1)); border-color: var(--green); color: var(--green); }
 </style>
 
-  <!-- PWA -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/lock/manifest-remote.json">
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/lock/sw.js', {scope: '/lock/'});
-  }
-  </script>
-  <style>
-  #pwa-install-btn {
-    position: fixed; bottom: 16px; right: 16px; z-index: 9999;
-    background: #7c3aed; color: #fff; border: none; border-radius: 50px;
-    padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
-    box-shadow: 0 4px 20px rgba(124,58,237,.5); display: none;
-    align-items: center; gap: 8px;
-  }
-  #pwa-install-btn.visible {{ display: flex; }}
-  </style>
+<!-- PWA -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/lock/manifest-remote.json">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/lock/sw.js', {scope: '/lock/'});
+}
+</script>
+<style>
+#pwa-install-btn {
+  position: fixed; bottom: 16px; right: 16px; z-index: 9999;
+  background: #7c3aed; color: #fff; border: none; border-radius: 50px;
+  padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(124,58,237,.5); display: none;
+  align-items: center; gap: 8px;
+}
+#pwa-install-btn.visible { display: flex; }
+</style>
 </head>
 <body>
 
@@ -97,13 +106,26 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 
 <button class="action-btn" id="play-btn" onclick="togglePlay()" style="color: var(--green);">▶ Start</button>
 
+<!-- Simple-only: timers + shake -->
+<div id="simple-sections">
+  <div class="section-title" style="width:100%;max-width:420px;">Timers</div>
+  <div class="timer-row">
+    <button class="timer-btn" id="stimer-5"  onclick="startTimer(5,'stimer-5')">⏱ 5s</button>
+    <button class="timer-btn" id="stimer-10" onclick="startTimer(10,'stimer-10')">⏱ 10s</button>
+    <button class="timer-btn" id="stimer-30" onclick="startTimer(30,'stimer-30')">⏱ 30s</button>
+    <button class="timer-btn" id="stimer-60" onclick="startTimer(60,'stimer-60')">⏱ 1m</button>
+  </div>
+  <button class="shake-btn" id="shake-btn" onclick="toggleShake()">🫨 Shake</button>
+</div>
+
+<!-- Full-only sections -->
 <div id="full-sections">
 <div class="section-title">Controls</div>
 <div class="mode-grid">
-  <button class="mode-btn" id="mode-constant" onclick="selectMode('constant')">
+  <button class="mode-btn" id="mode-constant" onclick="toggleModeBtn('constant', null)">
     <span class="mode-icon">⚡</span>Constant
   </button>
-  <button class="mode-btn" id="mode-walking" onclick="toggleWalking()">
+  <button class="mode-btn" id="mode-walking" onclick="toggleModeBtn('walking', null)">
     <span class="mode-icon">🚶</span>Walking
   </button>
 </div>
@@ -147,7 +169,7 @@ let isRunning = false;
 let walkingActive = false;
 let lastWalkTime = 0;
 
-// ── Auto-connect from GitHub ID ───────────────────────────────────────────
+// ── Connect ───────────────────────────────────────────────────────────────
 async function fetchAndConnect() {
   try {
     document.getElementById('connecting-msg').textContent = 'Looking up host ID...';
@@ -189,13 +211,14 @@ function connectToHost(id) {
 
 fetchAndConnect();
 
+// ── Build grids ───────────────────────────────────────────────────────────
 function buildGrids() {
   const gw = document.getElementById('grid-waves');
   WAVES_CLASSIC.forEach((w, i) => {
     const b = document.createElement('button');
     b.className = 'mode-btn'; b.id = 'mode-wave-' + i;
     b.innerHTML = `<span class="mode-icon">${w.icon}</span>${w.name}`;
-    b.onclick = () => selectMode('wave-' + i, w.vals);
+    b.onclick = () => toggleModeBtn('wave-' + i, w.vals);
     gw.appendChild(b);
   });
   const gp = document.getElementById('grid-patterns');
@@ -203,12 +226,39 @@ function buildGrids() {
     const b = document.createElement('button');
     b.className = 'mode-btn'; b.id = 'mode-pattern-' + i;
     b.innerHTML = `<span class="mode-icon">${w.icon}</span>${w.name}`;
-    b.onclick = () => selectMode('pattern-' + i, w.vals);
+    b.onclick = () => toggleModeBtn('pattern-' + i, w.vals);
     gp.appendChild(b);
   });
 }
 buildGrids();
 
+// ── Mode button: press = start, press again = stop ────────────────────────
+function toggleModeBtn(modeId, vals) {
+  // If this mode is already running → stop it
+  if (isRunning && currentMode && currentMode.id === modeId) {
+    stopWalking();
+    clearAllModeActive();
+    setPlayState(false);
+    currentMode = null;
+    return;
+  }
+  // Otherwise start it
+  if (modeId === 'walking') {
+    startWalking();
+  } else {
+    stopWalking();
+    clearAllModeActive();
+    document.getElementById('mode-' + modeId)?.classList.add('running');
+    currentMode = { id: modeId, vals };
+    setPlayState(true);
+  }
+}
+
+function clearAllModeActive() {
+  document.querySelectorAll('.mode-btn').forEach(b => { b.classList.remove('active'); b.classList.remove('running'); });
+}
+
+// ── Play state ────────────────────────────────────────────────────────────
 function scaleVals(vals, intensity) { return vals.map(v => Math.min(100, v * intensity)); }
 
 function sendCurrentMode() {
@@ -233,13 +283,21 @@ function setPlayState(play) {
 }
 
 function togglePlay() {
-  if (!currentMode) { selectMode('constant'); } else { setPlayState(!isRunning); }
+  if (!currentMode) { selectMode('constant'); }
+  else if (isRunning) {
+    clearAllModeActive();
+    setPlayState(false);
+    currentMode = null;
+  } else {
+    setPlayState(true);
+  }
 }
 
+// legacy helper used by touch pad
 function selectMode(modeId, vals) {
-  if (modeId !== 'walking') stopWalking();
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('mode-' + modeId)?.classList.add('active');
+  stopWalking();
+  clearAllModeActive();
+  document.getElementById('mode-' + modeId)?.classList.add('running');
   currentMode = { id: modeId, vals };
   setPlayState(true);
 }
@@ -251,6 +309,7 @@ function onIntensity(val) {
   if (isRunning) sendCurrentMode();
 }
 
+// ── Touch pad ─────────────────────────────────────────────────────────────
 const touchPad = document.getElementById('touch-pad');
 const touchInd = document.getElementById('touch-indicator');
 
@@ -274,8 +333,8 @@ touchPad.addEventListener('touchstart', (e) => {
 touchPad.addEventListener('touchmove', handleTouch);
 touchPad.addEventListener('touchend', () => { touchInd.style.opacity = 0; });
 
-async function toggleWalking() {
-  if (walkingActive) { stopWalking(); selectMode('constant'); return; }
+// ── Walking ───────────────────────────────────────────────────────────────
+async function startWalking() {
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     try {
       const permission = await DeviceMotionEvent.requestPermission();
@@ -283,11 +342,17 @@ async function toggleWalking() {
     } catch (e) { console.error(e); }
   }
   walkingActive = true;
-  selectMode('walking');
+  clearAllModeActive();
+  document.getElementById('mode-walking')?.classList.add('running');
+  currentMode = { id: 'walking', vals: null };
+  setPlayState(true);
   window.addEventListener('devicemotion', handleWalk);
 }
 
-function stopWalking() { walkingActive = false; window.removeEventListener('devicemotion', handleWalk); }
+function stopWalking() {
+  walkingActive = false;
+  window.removeEventListener('devicemotion', handleWalk);
+}
 
 function handleWalk(event) {
   if (!walkingActive || !isRunning) return;
@@ -301,39 +366,126 @@ function handleWalk(event) {
   lastWalkTime = now;
 }
 
+// ── Timers ────────────────────────────────────────────────────────────────
+let _timerHandle = null;
+let _activeTimerBtnId = null;
+
+function clearTimer() {
+  if (_timerHandle) { clearTimeout(_timerHandle); _timerHandle = null; }
+  if (_activeTimerBtnId) {
+    document.getElementById(_activeTimerBtnId)?.classList.remove('active');
+    _activeTimerBtnId = null;
+  }
+}
+
+function startTimer(secs, btnId) {
+  // If same timer is running → cancel it and stop
+  if (_activeTimerBtnId === btnId) {
+    clearTimer();
+    clearAllModeActive();
+    setPlayState(false);
+    currentMode = null;
+    return;
+  }
+  clearTimer();
+  _activeTimerBtnId = btnId;
+  document.getElementById(btnId)?.classList.add('active');
+  if (!currentMode) currentMode = { id: 'constant', vals: null };
+  if (!isRunning) setPlayState(true);
+  _timerHandle = setTimeout(() => {
+    clearTimer();
+    clearAllModeActive();
+    setPlayState(false);
+    currentMode = null;
+  }, secs * 1000);
+}
+
+// ── Shake ─────────────────────────────────────────────────────────────────
+let _shakeActive = false;
+let _lastShakeTime = 0;
+let _lastMag = 9.8;
+
+async function toggleShake() {
+  if (_shakeActive) { stopShake(); return; }
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const p = await DeviceMotionEvent.requestPermission();
+      if (p !== 'granted') return;
+    } catch(e) { return; }
+  }
+  _shakeActive = true;
+  document.getElementById('shake-btn').classList.add('active');
+  window.addEventListener('devicemotion', handleShake);
+}
+
+function stopShake() {
+  _shakeActive = false;
+  document.getElementById('shake-btn').classList.remove('active');
+  window.removeEventListener('devicemotion', handleShake);
+}
+
+function handleShake(e) {
+  if (!_shakeActive) return;
+  const now = Date.now();
+  if (now - _lastShakeTime < 80) return;
+  _lastShakeTime = now;
+  const a = e.accelerationIncludingGravity;
+  if (!a) return;
+  const mag = Math.sqrt(a.x**2 + a.y**2 + a.z**2);
+  const delta = Math.abs(mag - _lastMag);
+  _lastMag = mag;
+  if (delta > 3) {
+    const newVal = Math.min(100, Math.round((delta / 20) * 100));
+    if (newVal > 5) {
+      if (!isRunning) {
+        if (!currentMode) currentMode = { id: 'constant', vals: null };
+        setPlayState(true);
+      }
+      intensity = newVal;
+      document.getElementById('int-display').innerHTML = `${intensity} <span>%</span>`;
+      document.getElementById('int-slider').value = intensity;
+      sendCurrentMode();
+    }
+  }
+}
+
+// ── View toggle ───────────────────────────────────────────────────────────
+let _fullView = true;
+function toggleView() {
+  _fullView = !_fullView;
+  document.getElementById('full-sections').style.display = _fullView ? '' : 'none';
+  document.getElementById('simple-sections').style.display = _fullView ? 'none' : '';
+  document.getElementById('view-toggle').textContent = _fullView ? 'SIMPLE' : 'FULL';
+}
+// Start in full view: hide simple sections
+document.getElementById('simple-sections').style.display = 'none';
+
+// ── Wake lock ─────────────────────────────────────────────────────────────
 async function keepAwake() {
   try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(e) {}
 }
 keepAwake();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
-
-let _fullView = true;
-function toggleView() {
-  _fullView = !_fullView;
-  document.getElementById('full-sections').style.display = _fullView ? '' : 'none';
-  document.getElementById('view-toggle').textContent = _fullView ? 'SIMPLE' : 'FULL';
-}
-
 </script>
 
-  <button id="pwa-install-btn" onclick="pwaInstall()">⬇ Install App</button>
-  <script>
-  var _deferredPrompt;
-  window.addEventListener('beforeinstallprompt', function(e) {
-    e.preventDefault(); _deferredPrompt = e;
-    document.getElementById('pwa-install-btn').classList.add('visible');
-  });
-  window.addEventListener('appinstalled', function() {
-    document.getElementById('pwa-install-btn').classList.remove('visible');
-  });
-  function pwaInstall() {
-    if (_deferredPrompt) {
-      _deferredPrompt.prompt();
-      _deferredPrompt.then(function(){ _deferredPrompt = null; });
-    } else {
-      alert('Use browser menu → "Add to Home Screen" or "Install App"');
-    }
+<button id="pwa-install-btn" onclick="pwaInstall()">⬇ Install App</button>
+<script>
+var _deferredPrompt;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault(); _deferredPrompt = e;
+  document.getElementById('pwa-install-btn').classList.add('visible');
+});
+window.addEventListener('appinstalled', function() {
+  document.getElementById('pwa-install-btn').classList.remove('visible');
+});
+function pwaInstall() {
+  if (_deferredPrompt) {
+    _deferredPrompt.prompt();
+    _deferredPrompt.then(function(){ _deferredPrompt = null; });
+  } else {
+    alert('Use browser menu → "Add to Home Screen" or "Install App"');
   }
-  </script>
+}
+</script>
 </body>
 </html>
