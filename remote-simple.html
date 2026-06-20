@@ -67,7 +67,7 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 <button class="btn-stop" id="btn-stop" onclick="sendStop()" disabled>⏹ Stop</button>
 
 <script>
-const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
+const HARDCODED_HOST_ID = 'locks-mac-home';
 
 let conn = null;
 let intensity = 50;
@@ -85,9 +85,9 @@ function setConnected(yes) {
 }
 
 function fetchAndConnect() {
-  setStatus('Connecting to LOCKS-MAC-HOME...', 'wait');
+  setStatus('Connecting to locks-mac-home...', 'wait');
   peer.on('open', () => {
-    conn = peer.connect('LOCKS-MAC-HOME');
+    conn = peer.connect('locks-mac-home');
     conn.on('open', () => { setConnected(true); setStatus('Connected ✓', 'ok'); });
     conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
     conn.on('close', () => { setConnected(false); setStatus('Disconnected — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
