@@ -85,9 +85,21 @@
       <button class="copy-btn" id="copy-btn" onclick="copyId()" style="display:none;">📋 Copy</button>
     </div>
   </div>
-  <div class="status-row">
-    <span class="status-label">GitHub Sync</span>
+  <div class="status-row" onclick="showTokenInput()" style="cursor:pointer">
+    <span class="status-label">GitHub Sync <span style="font-size:10px;color:#555">✏️</span></span>
     <span class="status-value wait" id="git-status">pending...</span>
+  </div>
+  <div id="token-row" style="display:none;padding:8px 0;gap:8px;flex-direction:column">
+    <input id="token-input" type="password" placeholder="Paste GitHub token..."
+      style="width:100%;background:#0d0d0f;border:1px solid #3f3f46;border-radius:8px;
+             color:#e8e8f0;padding:8px 10px;font-size:12px;font-family:monospace;outline:none"/>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveToken()" style="flex:1;padding:7px;border-radius:8px;border:none;
+        background:#7c3aed;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Save & Retry</button>
+      <button onclick="document.getElementById('token-row').style.display='none'"
+        style="padding:7px 12px;border-radius:8px;border:none;background:#1c1c24;
+               color:#888;font-size:12px;cursor:pointer">Cancel</button>
+    </div>
   </div>
   <div class="status-row">
     <span class="status-label">Device</span>
@@ -115,7 +127,24 @@
   const params = new URLSearchParams(hash);
   if (params.get('t')) { localStorage.setItem('gh_token', params.get('t')); location.hash = ''; }
 })();
-const GITHUB_TOKEN = localStorage.getItem('gh_token') || '';
+let GITHUB_TOKEN = localStorage.getItem('gh_token') || '';
+
+function showTokenInput() {
+  const row = document.getElementById('token-row');
+  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+  if (row.style.display === 'flex') document.getElementById('token-input').focus();
+}
+function saveToken() {
+  const val = document.getElementById('token-input').value.trim();
+  if (!val) return;
+  GITHUB_TOKEN = val;
+  localStorage.setItem('gh_token', val);
+  document.getElementById('token-input').value = '';
+  document.getElementById('token-row').style.display = 'none';
+  document.getElementById('git-status').textContent = 'retrying...';
+  document.getElementById('git-status').className = 'status-value wait';
+  pushIdToGitHub('LOCKS-7B2K');
+}
 const GITHUB_REPO  = 'maciek11123/lock';
 const ID_FILE      = 'id.json';
 
@@ -262,7 +291,8 @@ function sendBytes(payload10) {
   const encrypted = Encrypt(buf);
   return { bytes: new Uint8Array(encrypted.map(b => b & 0xFF)) };
 }
-function buildPayload(intensity0to100) { return [0x5A, 0x00, 0x00, 0x01, 0x31, intensity0to100, 0, 0, 0, 0]; }
+const MAX_INTENSITY = 40; // UI shows 0-100, true hardware max is 40
+function buildPayload(intensity0to100) { const capped = Math.round(intensity0to100 * MAX_INTENSITY / 100); return [0x5A, 0x00, 0x00, 0x01, 0x31, capped, 0, 0, 0, 0]; }
 
 let device = null, writeChar = null, intensity = 50;
 
