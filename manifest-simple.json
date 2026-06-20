@@ -6,12 +6,19 @@
   "display": "standalone",
   "background_color": "#0d0d0f",
   "theme_color": "#7c3aed",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Crect width=%22512%22 height=%22512%22 rx=%2280%22 fill=%22%231a1a2e%22/%3E%3Crect x=%22176%22 y=%2296%22 width=%22160%22 height=%22320%22 rx=%2230%22 fill=%22%237c3aed%22/%3E%3Ccircle cx=%22256%22 cy=%22196%22 r=%2224%22 fill=%22%23e9d5ff%22/%3E%3Crect x=%22216%22 y=%22256%22 width=%2280%22 height=%2212%22 rx=%226%22 fill=%22%23a78bfa%22/%3E%3Crect x=%22216%22 y=%22284%22 width=%2280%22 height=%2212%22 rx=%226%22 fill=%22%23a78bfa%22/%3E%3C/svg%3E",
+      "src": "/lock/icon-simple-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/lock/icon-simple-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
