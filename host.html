@@ -106,6 +106,10 @@
     <span class="status-value wait" id="device-status">not connected</span>
   </div>
   <div class="status-row">
+    <span class="status-label">Battery</span>
+    <span class="status-value wait" id="batt-status">—</span>
+  </div>
+  <div class="status-row">
     <span class="status-label">Stay Awake</span>
     <span class="status-value wait" id="wake-status">inactive</span>
   </div>
@@ -269,6 +273,8 @@ function triggerLocalVibrate() { clearInterval(patternInterval); sendVibrate(); 
 function triggerLocalStop() { clearInterval(patternInterval); onSlider(0); sendStop(); }
 
 const SVC_UUID   = '00001000-0000-1000-8000-00805f9b34fb';
+const SVC_BATT   = '0000180f-0000-1000-8000-00805f9b34fb';
+const CHR_BATT   = '00002a19-0000-1000-8000-00805f9b34fb';
 const WRITE_UUID = '00001001-0000-1000-8000-00805f9b34fb';
 const SVC_FF12   = '0000ff12-0000-1000-8000-00805f9b34fb';
 const SVC_FF20   = '0000ff20-0000-1000-8000-00805f9b34fb';
@@ -340,7 +346,7 @@ window.onload = () => {
 
 async function scanAndConnect() {
   try {
-    device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SVC_UUID, SVC_FF12, SVC_FF20] });
+    device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [SVC_UUID, SVC_FF12, SVC_FF20, SVC_BATT] });
     await connectGATT();
   } catch(e) { log(`Error: ${e.message}`, 'err'); }
 }
@@ -363,6 +369,7 @@ async function connectGATT() {
     log('✅ Connected via BLE', 'ok');
     acquireWakeLock();
     startKeepalive();
+    readBattery(server);
   } catch(e) { setStatus('failed', 'err'); log(`GATT error: ${e.message}`, 'err'); }
 }
 
@@ -397,6 +404,35 @@ async function disconnect() { if (device?.gatt?.connected) device.gatt.disconnec
 function setStatus(txt, cls) {
   const el = document.getElementById('device-status');
   el.textContent = txt; el.className = 'status-value ' + cls;
+}
+
+// ── Battery ──────────────────────────────────────────────────────────
+async function readBattery(server) {
+  try {
+    const svc = await server.getPrimaryService(SVC_BATT);
+    const chr = await svc.getCharacteristic(CHR_BATT);
+    const val = await chr.readValue();
+    updateBattery(val.getUint8(0));
+    // Subscribe to notifications for live updates
+    await chr.startNotifications();
+    chr.addEventListener('characteristicvaluechanged', e => {
+      updateBattery(e.target.value.getUint8(0));
+    });
+    log('🔋 Battery monitoring active', 'ok');
+  } catch(e) {
+    document.getElementById('batt-status').textContent = 'not available';
+    document.getElementById('batt-status').className = 'status-value wait';
+  }
+}
+function updateBattery(pct) {
+  const el = document.getElementById('batt-status');
+  const icon = pct > 70 ? '🔋' : pct > 30 ? '🪫' : '⚠️';
+  el.textContent = `${icon} ${pct}%`;
+  el.className = 'status-value ' + (pct > 30 ? 'ok' : 'err');
+  // Broadcast to all connected remotes
+  Object.values(connections || {}).forEach(c => {
+    if (c && c.open) c.send({ type: 'battery', pct });
+  });
 }
 
 // ── Wake Lock ─────────────────────────────────────────────────────────
