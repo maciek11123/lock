@@ -105,6 +105,14 @@
     <span class="status-label">Device</span>
     <span class="status-value wait" id="device-status">not connected</span>
   </div>
+  <div class="status-row">
+    <span class="status-label">Stay Awake</span>
+    <span class="status-value wait" id="wake-status">inactive</span>
+  </div>
+  <div class="status-row">
+    <span class="status-label">Keepalive</span>
+    <span class="status-value wait" id="keepalive-status">inactive</span>
+  </div>
 </div>
 
 <button class="main-btn btn-scan" id="btn-scan" onclick="scanAndConnect()">Scan &amp; Connect — Pick DT01</button>
@@ -353,6 +361,8 @@ async function connectGATT() {
     document.getElementById('btn-scan').style.display = 'none';
     document.getElementById('controls').style.display = 'flex';
     log('✅ Connected via BLE', 'ok');
+    acquireWakeLock();
+    startKeepalive();
   } catch(e) { setStatus('failed', 'err'); log(`GATT error: ${e.message}`, 'err'); }
 }
 
@@ -388,6 +398,95 @@ function setStatus(txt, cls) {
   const el = document.getElementById('device-status');
   el.textContent = txt; el.className = 'status-value ' + cls;
 }
+
+// ── Wake Lock ─────────────────────────────────────────────────────────
+let wakeLock = null;
+async function acquireWakeLock() {
+  // Try Screen Wake Lock API first
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        document.getElementById('wake-status').textContent = 'released — reacquiring';
+        document.getElementById('wake-status').className = 'status-value wait';
+        setTimeout(acquireWakeLock, 2000);
+      });
+      document.getElementById('wake-status').textContent = 'screen lock active ✓';
+      document.getElementById('wake-status').className = 'status-value ok';
+      log('🔒 Wake Lock acquired', 'ok');
+      return;
+    } catch(e) { log('Wake Lock API failed, using audio fallback', 'wait'); }
+  }
+  // Fallback: silent audio loop
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    function loop() {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.onended = loop;
+      src.start();
+    }
+    loop();
+    document.getElementById('wake-status').textContent = 'audio fallback active ✓';
+    document.getElementById('wake-status').className = 'status-value ok';
+    log('🔇 NoSleep audio loop started', 'ok');
+  } catch(e) {
+    document.getElementById('wake-status').textContent = 'unavailable';
+    document.getElementById('wake-status').className = 'status-value err';
+  }
+}
+// Re-acquire after visibility change (Android releases it when tab hides)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !wakeLock) acquireWakeLock();
+});
+
+// ── BLE Auto-reconnect ────────────────────────────────────────────────
+const BLE_RECONNECT_DELAY = 3000;
+let reconnectTimer = null;
+function onDisconnected() {
+  setStatus('disconnected — reconnecting...', 'err');
+  writeChar = null;
+  log('⚠️ BLE disconnected — retrying in 3s', 'err');
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(async () => {
+    if (device) {
+      log('🔄 Attempting BLE reconnect...', 'info');
+      try { await connectGATT(); }
+      catch(e) { log(`Reconnect failed: ${e.message}`, 'err'); onDisconnected(); }
+    }
+  }, BLE_RECONNECT_DELAY);
+}
+
+// ── Keepalive ping ────────────────────────────────────────────────────
+const KEEPALIVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const KEEPALIVE_VAL = 1; // 0.01% effective (1/100 * 40% cap = 0.4 hardware)
+let keepaliveTimer = null;
+async function sendKeepalive() {
+  if (!writeChar) return; // not connected, skip
+  try {
+    const r = sendBytes(buildPayload(KEEPALIVE_VAL));
+    await writeToDevice(r.bytes);
+    // Immediately stop after 200ms
+    await new Promise(res => setTimeout(res, 200));
+    await sendStop();
+    const t = new Date().toLocaleTimeString('en-US', {hour12:false});
+    document.getElementById('keepalive-status').textContent = `last ping ${t}`;
+    document.getElementById('keepalive-status').className = 'status-value ok';
+    log('💓 Keepalive ping sent', 'info');
+  } catch(e) { log(`Keepalive failed: ${e.message}`, 'err'); }
+}
+function startKeepalive() {
+  clearInterval(keepaliveTimer);
+  keepaliveTimer = setInterval(sendKeepalive, KEEPALIVE_INTERVAL);
+  document.getElementById('keepalive-status').textContent = 'every 5 min ✓';
+  document.getElementById('keepalive-status').className = 'status-value ok';
+  log('💓 Keepalive started (every 5 min)', 'ok');
+}
+
+// ── Boot: acquire wake lock immediately ───────────────────────────────
+acquireWakeLock();
 </script>
 
   <button id="pwa-install-btn" onclick="pwaInstall()">⬇ Install App</button>
