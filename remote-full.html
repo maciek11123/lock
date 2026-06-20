@@ -49,11 +49,24 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 .connecting-overlay p { color: var(--muted); font-size: 13px; text-align: center; }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* Timer row */
-.timer-row { width: 100%; max-width: 420px; display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-.timer-btn { padding: 12px 4px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; transition: all .15s; }
-.timer-btn:active { transform: scale(.96); }
-.timer-btn.active { background: linear-gradient(135deg,rgba(192,132,252,.2),rgba(129,140,248,.2)); border-color: var(--accent); color: var(--accent); }
+/* Circle timer row */
+.timer-row { width: 100%; max-width: 420px; display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.timer-circle {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; -webkit-user-select: none; user-select: none;
+  gap: 5px;
+}
+.timer-circle svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tc-track { fill: none; stroke: var(--border); stroke-width: 4; }
+.tc-arc   { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round;
+            transform: rotate(-90deg); transform-origin: 50% 50%;
+            transition: stroke-dashoffset 0.05s linear; }
+.tc-label { font-size: 13px; font-weight: 800; fill: var(--muted); text-anchor: middle; dominant-baseline: central; transition: fill .2s; }
+.timer-circle.active .tc-arc   { stroke: var(--accent); }
+.timer-circle.active .tc-label { fill: var(--accent); }
+.timer-circle.idle   .tc-arc   { stroke: var(--border); stroke-dashoffset: 0; }
+.tc-name { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; transition: color .2s; }
+.timer-circle.active .tc-name { color: var(--accent); }
 /* Shake btn */
 .shake-btn { width: 100%; max-width: 420px; padding: 13px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; transition: all .15s; }
 .shake-btn.active { background: linear-gradient(135deg,rgba(52,211,153,.15),rgba(129,140,248,.1)); border-color: var(--green); color: var(--green); }
@@ -109,12 +122,7 @@ if ('serviceWorker' in navigator) {
 <!-- Simple-only: timers + shake -->
 <div id="simple-sections">
   <div class="section-title" style="width:100%;max-width:420px;">Timers</div>
-  <div class="timer-row">
-    <button class="timer-btn" id="stimer-5"  onclick="startTimer(5,'stimer-5')">⏱ 5s</button>
-    <button class="timer-btn" id="stimer-10" onclick="startTimer(10,'stimer-10')">⏱ 10s</button>
-    <button class="timer-btn" id="stimer-30" onclick="startTimer(30,'stimer-30')">⏱ 30s</button>
-    <button class="timer-btn" id="stimer-60" onclick="startTimer(60,'stimer-60')">⏱ 1m</button>
-  </div>
+  <div class="timer-row" id="timer-row"></div>
   <button class="shake-btn" id="shake-btn" onclick="toggleShake()">🫨 Shake</button>
 </div>
 
@@ -366,21 +374,78 @@ function handleWalk(event) {
   lastWalkTime = now;
 }
 
-// ── Timers ────────────────────────────────────────────────────────────────
+// ── Circle Timers ─────────────────────────────────────────────────────────
+const TIMERS = [
+  { secs: 5,  label: '5s',  id: 'tc-5'  },
+  { secs: 10, label: '10s', id: 'tc-10' },
+  { secs: 30, label: '30s', id: 'tc-30' },
+  { secs: 60, label: '1m',  id: 'tc-60' },
+];
+const R = 28; // circle radius
+const CIRC = 2 * Math.PI * R; // ~175.9
+
+(function buildTimerCircles() {
+  const row = document.getElementById('timer-row');
+  TIMERS.forEach(t => {
+    const wrap = document.createElement('div');
+    wrap.className = 'timer-circle idle';
+    wrap.id = t.id;
+    wrap.onclick = () => handleTimerClick(t.id, t.secs);
+    wrap.innerHTML = `
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <circle class="tc-track" cx="32" cy="32" r="${R}"/>
+        <circle class="tc-arc" cx="32" cy="32" r="${R}"
+          stroke-dasharray="${CIRC}" stroke-dashoffset="0"/>
+        <text class="tc-label" x="32" y="32">${t.label}</text>
+      </svg>
+      <span class="tc-name">${t.label}</span>`;
+    row.appendChild(wrap);
+  });
+})();
+
 let _timerHandle = null;
-let _activeTimerBtnId = null;
+let _timerRaf = null;
+let _activeTimerId = null;
+let _timerEnd = 0;
+let _timerDur = 0;
 
 function clearTimer() {
   if (_timerHandle) { clearTimeout(_timerHandle); _timerHandle = null; }
-  if (_activeTimerBtnId) {
-    document.getElementById(_activeTimerBtnId)?.classList.remove('active');
-    _activeTimerBtnId = null;
+  if (_timerRaf)    { cancelAnimationFrame(_timerRaf); _timerRaf = null; }
+  if (_activeTimerId) {
+    const el = document.getElementById(_activeTimerId);
+    if (el) {
+      el.classList.remove('active');
+      el.classList.add('idle');
+      // reset arc
+      el.querySelector('.tc-arc').style.strokeDashoffset = '0';
+      // reset label to original
+      const t = TIMERS.find(x => x.id === _activeTimerId);
+      if (t) el.querySelector('.tc-label').textContent = t.label;
+    }
+    _activeTimerId = null;
   }
 }
 
-function startTimer(secs, btnId) {
-  // If same timer is running → cancel it and stop
-  if (_activeTimerBtnId === btnId) {
+function tickTimer() {
+  if (!_activeTimerId) return;
+  const el = document.getElementById(_activeTimerId);
+  if (!el) return;
+  const remaining = Math.max(0, _timerEnd - Date.now());
+  const frac = remaining / (_timerDur * 1000); // 1→0
+  const offset = CIRC * (1 - frac);            // arc drains
+  el.querySelector('.tc-arc').style.strokeDashoffset = offset;
+  // live countdown label
+  const secs = Math.ceil(remaining / 1000);
+  el.querySelector('.tc-label').textContent = secs > 0 ? secs + 's' : '✓';
+  if (remaining > 0) {
+    _timerRaf = requestAnimationFrame(tickTimer);
+  }
+}
+
+function handleTimerClick(btnId, secs) {
+  // same active timer → cancel
+  if (_activeTimerId === btnId) {
     clearTimer();
     clearAllModeActive();
     setPlayState(false);
@@ -388,10 +453,15 @@ function startTimer(secs, btnId) {
     return;
   }
   clearTimer();
-  _activeTimerBtnId = btnId;
-  document.getElementById(btnId)?.classList.add('active');
+  _activeTimerId = btnId;
+  _timerDur = secs;
+  _timerEnd = Date.now() + secs * 1000;
+  const el = document.getElementById(btnId);
+  el.classList.remove('idle');
+  el.classList.add('active');
   if (!currentMode) currentMode = { id: 'constant', vals: null };
   if (!isRunning) setPlayState(true);
+  _timerRaf = requestAnimationFrame(tickTimer);
   _timerHandle = setTimeout(() => {
     clearTimer();
     clearAllModeActive();
