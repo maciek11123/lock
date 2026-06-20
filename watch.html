@@ -134,7 +134,7 @@ html, body {
 
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script>
-const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
 
 let conn = null;
 let isOn = false;
@@ -164,21 +164,13 @@ function setConnected(yes) {
   }
 }
 
-async function fetchAndConnect() {
-  try {
-    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-    peer.on('open', () => {
-      conn = peer.connect(data.id);
-      conn.on('open', () => setConnected(true));
-      conn.on('error', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
-      conn.on('close', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
-    });
-  } catch(e) {
-    setStatus('no host', 'err');
-    setTimeout(fetchAndConnect, 5000);
-  }
+function fetchAndConnect() {
+  peer.on('open', () => {
+    conn = peer.connect('LOCKS-MAC-HOME');
+    conn.on('open', () => setConnected(true));
+    conn.on('error', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
+    conn.on('close', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
+  });
 }
 
 fetchAndConnect();
