@@ -104,8 +104,33 @@ html, body {
 .side-btn.plus  { right: 4vmin; top: 50%; transform: translateY(-50%); }
 .side-btn.plus:active  { transform: translateY(-50%) scale(0.88); }
 
-/* Intensity value */
-.intensity-val {
+/* Timer buttons row */
+.timer-row {
+  display: flex; gap: 3vmin;
+  flex-direction: row; align-items: center; justify-content: center;
+}
+.timer-btn {
+  background: #111120; border: 1px solid #2a2a3a; color: #666;
+  border-radius: 8px; font-size: 3vmin; font-weight: 700;
+  padding: 2.5vmin 3.5vmin; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, transform .1s;
+  -webkit-user-select: none; user-select: none;
+}
+.timer-btn:active { transform: scale(0.88); }
+.timer-btn.active { background: #2a1a4a; border-color: #a855f7; color: #c084fc; }
+
+/* Shake indicator */
+.shake-btn {
+  position: absolute;
+  bottom: 10vmin; left: 50%; transform: translateX(-50%);
+  background: #111120; border: 1px solid #2a2a3a; color: #555;
+  border-radius: 20px; font-size: 3vmin; font-weight: 700;
+  padding: 2vmin 5vmin; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  -webkit-user-select: none; user-select: none;
+}
+.shake-btn.active { background: #1a2a1a; border-color: #4ade80; color: #4ade80; }
+
   font-size: 4vmin; font-weight: 700; color: #555;
   letter-spacing: 0.05em;
   transition: color 0.3s;
@@ -129,6 +154,17 @@ html, body {
   <!-- Labels -->
   <div class="status-text wait" id="status">connecting</div>
   <div class="intensity-val" id="ival">50%</div>
+
+  <!-- Timers -->
+  <div class="timer-row">
+    <button class="timer-btn" id="t5"  onclick="startTimer(5)">5s</button>
+    <button class="timer-btn" id="t10" onclick="startTimer(10)">10s</button>
+    <button class="timer-btn" id="t30" onclick="startTimer(30)">30s</button>
+    <button class="timer-btn" id="t60" onclick="startTimer(60)">1m</button>
+  </div>
+
+  <!-- Shake toggle -->
+  <button class="shake-btn" id="shake-btn" onclick="toggleShake()">🫨 Shake</button>
 
 </div>
 
@@ -207,6 +243,76 @@ function changeIntensity(delta) {
   ival.textContent = intensity + '%';
   if (isOn) send({ action: 'constant', val: intensity });
 }
+
+// ── Timers ────────────────────────────────────────────────────────────────
+let _timerHandle = null;
+let _activeTimerId = null;
+
+function clearTimer() {
+  if (_timerHandle) { clearTimeout(_timerHandle); _timerHandle = null; }
+  if (_activeTimerId) {
+    document.getElementById(_activeTimerId)?.classList.remove('active');
+    _activeTimerId = null;
+  }
+}
+
+function startTimer(secs) {
+  clearTimer();
+  const btnId = 't' + (secs === 60 ? 60 : secs);
+  _activeTimerId = btnId;
+  document.getElementById(btnId)?.classList.add('active');
+  if (!isOn) turnOn();
+  _timerHandle = setTimeout(() => {
+    turnOff(false);
+    clearTimer();
+  }, secs * 1000);
+}
+
+// ── Shake ─────────────────────────────────────────────────────────────────
+let _shakeActive = false;
+let _lastShakeTime = 0;
+let _lastMag = 9.8;
+
+async function toggleShake() {
+  if (_shakeActive) { stopShake(); return; }
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const p = await DeviceMotionEvent.requestPermission();
+      if (p !== 'granted') return;
+    } catch(e) { return; }
+  }
+  _shakeActive = true;
+  document.getElementById('shake-btn').classList.add('active');
+  window.addEventListener('devicemotion', handleShake);
+}
+
+function stopShake() {
+  _shakeActive = false;
+  document.getElementById('shake-btn').classList.remove('active');
+  window.removeEventListener('devicemotion', handleShake);
+}
+
+function handleShake(e) {
+  if (!_shakeActive) return;
+  const now = Date.now();
+  if (now - _lastShakeTime < 80) return;
+  _lastShakeTime = now;
+  const a = e.accelerationIncludingGravity;
+  if (!a) return;
+  const mag = Math.sqrt(a.x**2 + a.y**2 + a.z**2);
+  const delta = Math.abs(mag - _lastMag);
+  _lastMag = mag;
+  if (delta > 3) {
+    const newVal = Math.min(100, Math.round((delta / 20) * 100));
+    if (newVal > 5) {
+      if (!isOn) turnOn();
+      intensity = newVal;
+      ival.textContent = intensity + '%';
+      send({ action: 'constant', val: intensity });
+    }
+  }
+}
+
 </script>
 </body>
 </html>
