@@ -198,6 +198,64 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
 .send-btn:active { transform: scale(.92); }
 .send-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; }
 </style>
+
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link id="pwa-manifest" rel="manifest">
+  <script>
+  (function() {
+    var manifest = {
+  "name": "AI Remote",
+  "short_name": "AI Remote",
+  "start_url": "/lock/ai-remote.html",
+  "display": "standalone",
+  "background_color": "#0d0d0f",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMWExYTJlIi8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjIwIiByPSI4MCIgZmlsbD0iIzdjM2FlZCIvPjxwYXRoIGQ9Ik0xODAgMzQwIFEyNTYgNDIwIDMzMiAzNDAiIHN0cm9rZT0iI2E3OGJmYSIgc3Ryb2tlLXdpZHRoPSIyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGNpcmNsZSBjeD0iMjMyIiBjeT0iMjEwIiByPSIxMiIgZmlsbD0iI2U5ZDVmZiIvPjxjaXJjbGUgY3g9IjI4MCIgY3k9IjIxMCIgcj0iMTIiIGZpbGw9IiNlOWQ1ZmYiLz48L3N2Zz4=",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjgwIiBmaWxsPSIjMWExYTJlIi8+PGNpcmNsZSBjeD0iMjU2IiBjeT0iMjIwIiByPSI4MCIgZmlsbD0iIzdjM2FlZCIvPjxwYXRoIGQ9Ik0xODAgMzQwIFEyNTYgNDIwIDMzMiAzNDAiIHN0cm9rZT0iI2E3OGJmYSIgc3Ryb2tlLXdpZHRoPSIyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGNpcmNsZSBjeD0iMjMyIiBjeT0iMjEwIiByPSIxMiIgZmlsbD0iI2U5ZDVmZiIvPjxjaXJjbGUgY3g9IjI4MCIgY3k9IjIxMCIgcj0iMTIiIGZpbGw9IiNlOWQ1ZmYiLz48L3N2Zz4=",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+};
+    var blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+    document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
+    if ('serviceWorker' in navigator) {
+      var swCode = `const CACHE = 'lock-v1';
+const ASSETS = [location.href];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.add(location.href)).catch(()=>{}));
+  self.skipWaiting();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});`;
+      var swBlob = new Blob([swCode], {type:'application/javascript'});
+      navigator.serviceWorker.register(URL.createObjectURL(swBlob), {scope: '/'}).catch(function(){});
+    }
+  })();
+  </script>
+  <style>
+  #pwa-install-btn {
+    position: fixed; bottom: 16px; right: 16px; z-index: 9999;
+    background: #7c3aed; color: #fff; border: none; border-radius: 50px;
+    padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(124,58,237,.5); display: none;
+    align-items: center; gap: 8px;
+  }
+  #pwa-install-btn.visible { display: flex; }
+  </style>
+
 </head>
 <body>
 
@@ -557,5 +615,22 @@ function autoResize(el) {
 // Wake lock
 try { if ('wakeLock' in navigator) navigator.wakeLock.request('screen'); } catch(e) {}
 </script>
+
+  <button id="pwa-install-btn" onclick="pwaInstall()">⬇ Install App</button>
+  <script>
+  var _deferredPrompt;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault(); _deferredPrompt = e;
+    document.getElementById('pwa-install-btn').classList.add('visible');
+  });
+  window.addEventListener('appinstalled', function() {
+    document.getElementById('pwa-install-btn').classList.remove('visible');
+  });
+  function pwaInstall() {
+    if (_deferredPrompt) { _deferredPrompt.prompt(); _deferredPrompt.then(function(){ _deferredPrompt=null; }); }
+    else { alert('To install: use your browser menu → "Add to Home Screen" or "Install App"'); }
+  }
+  </script>
+
 </body>
 </html>
