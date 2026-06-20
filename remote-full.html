@@ -116,7 +116,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 <div class="mode-grid" id="grid-patterns"></div>
 
 <script>
-const HARDCODED_HOST_ID = 'locks-mac-home';
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
 
 const WAVES_CLASSIC = [
   { name:'Wave 1',  icon:'〰️', vals:[.5] },
@@ -143,9 +143,17 @@ let walkingActive = false;
 let lastWalkTime = 0;
 
 // ── Auto-connect from GitHub ID ───────────────────────────────────────────
-function fetchAndConnect() {
-  document.getElementById('connecting-msg').textContent = 'Connecting to locks-mac-home...';
-  peer.on('open', () => connectToHost('locks-mac-home'));
+async function fetchAndConnect() {
+  try {
+    document.getElementById('connecting-msg').textContent = 'Looking up host ID...';
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error('id.json not found');
+    const data = await res.json();
+    document.getElementById('connecting-msg').textContent = `Connecting to ${data.id}...`;
+    peer.on('open', () => connectToHost(data.id));
+  } catch(e) {
+    document.getElementById('connecting-msg').textContent = 'Could not find host. Is it running?';
+  }
 }
 
 function connectToHost(id) {
@@ -154,6 +162,13 @@ function connectToHost(id) {
     document.getElementById('connecting-overlay').style.display = 'none';
     document.getElementById('dot').className = 'dot ok';
     document.getElementById('status-lbl').textContent = 'Connected';
+  });
+  conn.on('data', d => {
+    if (d && d.type === 'battery') {
+      const icon = d.pct > 70 ? '🔋' : d.pct > 30 ? '🪫' : '⚠️';
+      const el = document.getElementById('batt-indicator');
+      if (el) { el.textContent = `${icon} ${d.pct}%`; el.style.opacity = '1'; }
+    }
   });
   conn.on('error', () => {
     document.getElementById('connecting-msg').textContent = 'Connection failed. Retrying...';
