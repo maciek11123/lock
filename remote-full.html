@@ -116,7 +116,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 <div class="mode-grid" id="grid-patterns"></div>
 
 <script>
-const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
 
 const WAVES_CLASSIC = [
   { name:'Wave 1',  icon:'〰️', vals:[.5] },
@@ -143,17 +143,9 @@ let walkingActive = false;
 let lastWalkTime = 0;
 
 // ── Auto-connect from GitHub ID ───────────────────────────────────────────
-async function fetchAndConnect() {
-  try {
-    document.getElementById('connecting-msg').textContent = 'Looking up host ID...';
-    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
-    if (!res.ok) throw new Error('id.json not found');
-    const data = await res.json();
-    document.getElementById('connecting-msg').textContent = `Connecting to ${data.id}...`;
-    peer.on('open', () => connectToHost(data.id));
-  } catch(e) {
-    document.getElementById('connecting-msg').textContent = 'Could not find host. Is it running?';
-  }
+function fetchAndConnect() {
+  document.getElementById('connecting-msg').textContent = 'Connecting to LOCKS-MAC-HOME...';
+  peer.on('open', () => connectToHost('LOCKS-MAC-HOME'));
 }
 
 function connectToHost(id) {
