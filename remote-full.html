@@ -116,7 +116,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 <div class="mode-grid" id="grid-patterns"></div>
 
 <script>
-const HARDCODED_HOST_ID = 'LOCKS-MAC-HOME';
+const HARDCODED_HOST_ID = 'locks-mac-home';
 
 const WAVES_CLASSIC = [
   { name:'Wave 1',  icon:'〰️', vals:[.5] },
@@ -144,8 +144,8 @@ let lastWalkTime = 0;
 
 // ── Auto-connect from GitHub ID ───────────────────────────────────────────
 function fetchAndConnect() {
-  document.getElementById('connecting-msg').textContent = 'Connecting to LOCKS-MAC-HOME...';
-  peer.on('open', () => connectToHost('LOCKS-MAC-HOME'));
+  document.getElementById('connecting-msg').textContent = 'Connecting to locks-mac-home...';
+  peer.on('open', () => connectToHost('locks-mac-home'));
 }
 
 function connectToHost(id) {
