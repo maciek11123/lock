@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Lock Watch</title>
+<link rel="manifest" href="/lock/manifest-watch.json">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/lock/sw.js', {scope: '/lock/'});
+}
+</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100vw; height: 100vh;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.face {
+  width: 100vmin; height: 100vmin;
+  border-radius: 50%;
+  background: #0a0a0a;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 6vmin;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ambient ring */
+.face::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid #1e1e2e;
+  pointer-events: none;
+}
+
+/* Status dot */
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #333;
+  transition: background 0.4s;
+  flex-shrink: 0;
+}
+.dot.connecting { background: #facc15; animation: pulse 1s infinite; }
+.dot.on  { background: #4ade80; }
+.dot.off { background: #333; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Big toggle button */
+.toggle {
+  width: 38vmin; height: 38vmin;
+  border-radius: 50%;
+  border: none; outline: none; cursor: pointer;
+  font-size: 13vmin;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s, background 0.25s, box-shadow 0.25s;
+  -webkit-user-select: none; user-select: none;
+  background: #1a1a2a;
+  box-shadow: 0 0 0 0 transparent;
+}
+.toggle:active { transform: scale(0.92); }
+.toggle.on {
+  background: radial-gradient(circle at 35% 35%, #a855f7, #6d28d9);
+  box-shadow: 0 0 30px 8px rgba(139,92,246,.45);
+}
+.toggle.disabled { opacity: 0.3; pointer-events: none; }
+
+/* Intensity arc label */
+.status-text {
+  font-size: 3vmin;
+  color: #444;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-height: 4vmin;
+  text-align: center;
+  transition: color 0.3s;
+}
+.status-text.on  { color: #a78bfa; }
+.status-text.err { color: #f87171; }
+.status-text.wait { color: #facc15; }
+
+/* Crown-style intensity buttons — positioned on the sides */
+.side-btn {
+  position: absolute;
+  width: 10vmin; height: 10vmin;
+  border-radius: 50%; border: none; cursor: pointer;
+  font-size: 5vmin; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  background: #1a1a2a; color: #888;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  -webkit-user-select: none; user-select: none;
+}
+.side-btn:active { transform: scale(0.88); background: #2a2a3a; color: #fff; }
+.side-btn.minus { left: 4vmin; top: 50%; transform: translateY(-50%); }
+.side-btn.minus:active { transform: translateY(-50%) scale(0.88); }
+.side-btn.plus  { right: 4vmin; top: 50%; transform: translateY(-50%); }
+.side-btn.plus:active  { transform: translateY(-50%) scale(0.88); }
+
+/* Intensity value */
+.intensity-val {
+  font-size: 4vmin; font-weight: 700; color: #555;
+  letter-spacing: 0.05em;
+  transition: color 0.3s;
+}
+.intensity-val.on { color: #c084fc; }
+</style>
+</head>
+<body>
+<div class="face">
+
+  <!-- Side intensity buttons -->
+  <button class="side-btn minus" onclick="changeIntensity(-10)">−</button>
+  <button class="side-btn plus"  onclick="changeIntensity(+10)">+</button>
+
+  <!-- Status dot -->
+  <div class="dot connecting" id="dot"></div>
+
+  <!-- Main toggle -->
+  <button class="toggle disabled" id="toggle" onclick="onToggle()">⚡</button>
+
+  <!-- Labels -->
+  <div class="status-text wait" id="status">connecting</div>
+  <div class="intensity-val" id="ival">50%</div>
+
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
+
+let conn = null;
+let isOn = false;
+let intensity = 50;
+
+const dot    = document.getElementById('dot');
+const toggle = document.getElementById('toggle');
+const status = document.getElementById('status');
+const ival   = document.getElementById('ival');
+
+const peer = new Peer();
+
+function setStatus(msg, cls) {
+  status.textContent = msg;
+  status.className = 'status-text ' + (cls || '');
+}
+
+function setConnected(yes) {
+  toggle.classList.toggle('disabled', !yes);
+  if (!yes) {
+    dot.className = 'dot connecting';
+    setStatus('connecting', 'wait');
+    if (isOn) turnOff(true); // silent off
+  } else {
+    dot.className = 'dot off';
+    setStatus('ready', '');
+  }
+}
+
+async function fetchAndConnect() {
+  try {
+    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    peer.on('open', () => {
+      conn = peer.connect(data.id);
+      conn.on('open', () => setConnected(true));
+      conn.on('error', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
+      conn.on('close', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
+    });
+  } catch(e) {
+    setStatus('no host', 'err');
+    setTimeout(fetchAndConnect, 5000);
+  }
+}
+
+fetchAndConnect();
+
+function send(msg) { if (conn && conn.open) conn.send(msg); }
+
+function turnOn() {
+  isOn = true;
+  toggle.classList.add('on');
+  toggle.textContent = '⚡';
+  dot.className = 'dot on';
+  ival.classList.add('on');
+  setStatus('on', 'on');
+  send({ action: 'constant', val: intensity });
+}
+
+function turnOff(silent) {
+  isOn = false;
+  toggle.classList.remove('on');
+  toggle.textContent = '⚡';
+  dot.className = 'dot off';
+  ival.classList.remove('on');
+  setStatus(silent ? 'connecting' : 'off', silent ? 'wait' : '');
+  if (!silent) send({ action: 'stop' });
+}
+
+function onToggle() {
+  if (isOn) turnOff(false);
+  else turnOn();
+}
+
+function changeIntensity(delta) {
+  intensity = Math.min(100, Math.max(0, intensity + delta));
+  ival.textContent = intensity + '%';
+  if (isOn) send({ action: 'constant', val: intensity });
+}
+</script>
+</body>
+</html>
