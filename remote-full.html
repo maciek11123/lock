@@ -80,9 +80,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 
 <div class="header">
   <div class="header-title">🔒 Locks <span>Remote</span></div>
-  <div class="status-row">
-    <div class="dot" id="dot"></div>
-    <span id="status-lbl">Disconnected</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button id="view-toggle" onclick="toggleView()" style="background:#1a1a28;border:1px solid #2a2a40;color:#a78bfa;border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;">SIMPLE</button>
+    <div class="status-row">
+      <div class="dot" id="dot"></div>
+      <span id="status-lbl">Disconnected</span>
+    </div>
   </div>
 </div>
 
@@ -94,6 +97,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 
 <button class="action-btn" id="play-btn" onclick="togglePlay()" style="color: var(--green);">▶ Start</button>
 
+<div id="full-sections">
 <div class="section-title">Controls</div>
 <div class="mode-grid">
   <button class="mode-btn" id="mode-constant" onclick="selectMode('constant')">
@@ -114,6 +118,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; h
 <div class="mode-grid" id="grid-waves"></div>
 <div class="section-title">Patterns</div>
 <div class="mode-grid" id="grid-patterns"></div>
+</div>
 
 <script>
 const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
@@ -301,6 +306,14 @@ async function keepAwake() {
 }
 keepAwake();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+
+let _fullView = true;
+function toggleView() {
+  _fullView = !_fullView;
+  document.getElementById('full-sections').style.display = _fullView ? '' : 'none';
+  document.getElementById('view-toggle').textContent = _fullView ? 'SIMPLE' : 'FULL';
+}
+
 </script>
 
   <button id="pwa-install-btn" onclick="pwaInstall()">⬇ Install App</button>
