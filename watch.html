@@ -175,6 +175,7 @@ const HARDCODED_HOST_ID = 'locks-mac-home';
 let conn = null;
 let isOn = false;
 let intensity = 50;
+let _pendingStop = false;
 
 const dot    = document.getElementById('dot');
 const toggle = document.getElementById('toggle');
@@ -197,6 +198,10 @@ function setConnected(yes) {
   } else {
     dot.className = 'dot off';
     setStatus('ready', '');
+    if (_pendingStop) {
+      _pendingStop = false;
+      send({ action: 'stop' });
+    }
   }
 }
 
@@ -211,7 +216,10 @@ function fetchAndConnect() {
 
 fetchAndConnect();
 
-function send(msg) { if (conn && conn.open) conn.send(msg); }
+function send(msg) {
+  if (conn && conn.open) conn.send(msg);
+  else if (msg && msg.action === 'stop') _pendingStop = true;
+}
 
 function turnOn() {
   isOn = true;
