@@ -247,9 +247,11 @@ function changeIntensity(delta) {
 // ── Timers ────────────────────────────────────────────────────────────────
 let _timerHandle = null;
 let _activeTimerId = null;
+let _timerEnd = null;
 
 function clearTimer() {
-  if (_timerHandle) { clearTimeout(_timerHandle); _timerHandle = null; }
+  if (_timerHandle) { clearInterval(_timerHandle); _timerHandle = null; }
+  _timerEnd = null;
   if (_activeTimerId) {
     document.getElementById(_activeTimerId)?.classList.remove('active');
     _activeTimerId = null;
@@ -260,12 +262,15 @@ function startTimer(secs) {
   clearTimer();
   const btnId = 't' + (secs === 60 ? 60 : secs);
   _activeTimerId = btnId;
+  _timerEnd = Date.now() + secs * 1000;
   document.getElementById(btnId)?.classList.add('active');
   if (!isOn) turnOn();
-  _timerHandle = setTimeout(() => {
-    turnOff(false);
-    clearTimer();
-  }, secs * 1000);
+  _timerHandle = setInterval(() => {
+    if (Date.now() >= _timerEnd) {
+      turnOff(false);
+      clearTimer();
+    }
+  }, 250);
 }
 
 // ── Shake ─────────────────────────────────────────────────────────────────
