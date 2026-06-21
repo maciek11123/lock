@@ -145,9 +145,11 @@ function buildGrids() {
 }
 buildGrids();
 
-function connectToHost() {
-  const id = document.getElementById('host-id').value.trim();
+let lastHostId = '';
+function connectToHost(id) {
+  id = id || document.getElementById('host-id').value.trim();
   if (!id) return;
+  lastHostId = id;
   conn = peer.connect(id);
   conn.on('open', () => {
     document.getElementById('overlay').style.display = 'none';
@@ -159,8 +161,8 @@ function connectToHost() {
   });
   conn.on('close', () => {
     document.getElementById('dot').className = 'dot err';
-    document.getElementById('status-lbl').textContent = 'Disconnected';
-    document.getElementById('overlay').style.display = 'flex';
+    document.getElementById('status-lbl').textContent = 'Reconnecting…';
+    setTimeout(() => connectToHost(lastHostId), 3000);
   });
 }
 
