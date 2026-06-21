@@ -155,11 +155,17 @@ function connectToHost(id) {
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('dot').className = 'dot ok';
     document.getElementById('status-lbl').textContent = 'Connected';
+    // Heartbeat ping every 10s so host can detect dead connections
+    if (window._pingTimer) clearInterval(window._pingTimer);
+    window._pingTimer = setInterval(() => {
+      if (conn && conn.open) conn.send({ action: 'ping' });
+    }, 10000);
   });
   conn.on('error', () => {
     document.getElementById('overlay-err').style.display = 'block';
   });
   conn.on('close', () => {
+    clearInterval(window._pingTimer);
     document.getElementById('dot').className = 'dot err';
     document.getElementById('status-lbl').textContent = 'Reconnecting…';
     setTimeout(() => connectToHost(lastHostId), 3000);
