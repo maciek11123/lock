@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>LE-DW REVOLVE+ Test v2</title>
+<title>IOTWF610 Test</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 12px; }
@@ -16,126 +16,122 @@
   #connect-btn:disabled { background:#333; color:#666; }
   .section { background:#111; border:1px solid #1e1e2e; border-radius:8px; padding:10px; margin-bottom:8px; }
   .section h2 { color:#aaa; font-size:10px; text-transform:uppercase; letter-spacing:1px; margin-bottom:7px; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; }
-  .btn { padding:9px 4px; border:1px solid #2a2a3a; border-radius:6px; background:#12121f; color:#ccc; font-size:11px; cursor:pointer; text-align:center; font-family:'Courier New',monospace; }
+  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; }
+  .btn { padding:10px 4px; border:1px solid #2a2a3a; border-radius:6px; background:#12121f; color:#ccc; font-size:12px; cursor:pointer; text-align:center; font-family:'Courier New',monospace; }
   .btn:active { background:#00e5ff22; border-color:#00e5ff; }
   .btn.go { border-color:#00e67644; color:#00e676; }
-  .btn.stop { background:#1a0000; border-color:#ff525244; color:#ff5252; grid-column:1/-1; }
-  .btn.active { background:#00e5ff22; border-color:#00e5ff; color:#00e5ff; }
+  .btn.stop { background:#1a0000; border-color:#ff525244; color:#ff5252; grid-column:1/-1; padding:12px; }
   .slider-row { display:flex; align-items:center; gap:8px; }
   .slider-row label { font-size:11px; color:#aaa; min-width:50px; }
   input[type=range] { flex:1; accent-color:#00e5ff; }
-  #ival { color:#00e5ff; font-weight:bold; min-width:25px; }
+  #ival { color:#00e5ff; font-weight:bold; min-width:25px; font-size:15px; }
   .hex-row { display:flex; gap:6px; margin-top:6px; }
   #chex { flex:1; background:#050508; border:1px solid #2a2a3a; border-radius:6px; padding:7px; color:#00e5ff; font-family:'Courier New',monospace; font-size:13px; }
   #shex { padding:7px 12px; background:#12121f; border:1px solid #00e5ff44; border-radius:6px; color:#00e5ff; cursor:pointer; }
+  .presets { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+  .preset { padding:4px 8px; background:#0a0a1a; border:1px solid #333; border-radius:4px; color:#888; font-size:10px; cursor:pointer; }
   #log { background:#050508; border:1px solid #111; border-radius:6px; padding:8px; height:200px; overflow-y:auto; font-size:11px; line-height:1.7; }
   .ls { color:#00e5ff; } .lr { color:#00e676; } .le { color:#ff5252; } .li { color:#555; }
   #clr { float:right; font-size:10px; color:#333; background:none; border:none; cursor:pointer; }
-  .note { font-size:10px; color:#555; margin-top:4px; }
+  .svc-label { font-size:10px; color:#555; margin-bottom:3px; }
+  select { background:#0a0a0f; border:1px solid #333; color:#aaa; border-radius:4px; padding:4px; font-size:12px; margin-bottom:6px; width:100%; }
 </style>
 </head>
 <body>
-<h1>LE-DW REVOLVE+ v2</h1>
+<h1>IOTWF610 Tester</h1>
 
 <div class="status"><span class="dot" id="dot"></span><span id="stxt">Disconnected</span></div>
-<button id="connect-btn" onclick="connect()">Connect</button>
+<button id="connect-btn" onclick="connect()">Connect to IOTWF610</button>
 
 <div class="section">
-  <h2>Intensity</h2>
+  <h2>Intensity (1–9)</h2>
   <div class="slider-row">
     <label>Level</label>
-    <input type="range" id="intensity" min="1" max="20" value="10" oninput="document.getElementById('ival').textContent=this.value">
-    <span id="ival">10</span>
+    <input type="range" id="intensity" min="1" max="9" value="5" oninput="document.getElementById('ival').textContent=this.value">
+    <span id="ival">5</span>
   </div>
 </div>
 
-<!-- FORMAT A: Womanizer/Lovense-style -->
 <div class="section">
-  <h2>Format A — [0F cmd intensity 00...]  (Lovense-style)</h2>
+  <h2>Service 0xFFFF → Write 0xFF01</h2>
+  <div class="svc-label">Protocol 1 — 2.4G style (single byte command)</div>
   <div class="grid">
-    <button class="btn go" onclick="sendA(1)">A: Mode 1</button>
-    <button class="btn go" onclick="sendA(2)">A: Mode 2</button>
-    <button class="btn go" onclick="sendA(3)">A: Mode 3</button>
-    <button class="btn go" onclick="sendA(4)">A: Mode 4</button>
-    <button class="btn stop" onclick="sendRaw([0x0F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])">⏹ A STOP</button>
-  </div>
-  <p class="note">e.g. 0F 01 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</p>
-</div>
-
-<!-- FORMAT B: Simple [cmd intensity] -->
-<div class="section">
-  <h2>Format B — Simple 2-byte [cmd val]</h2>
-  <div class="grid3">
-    <button class="btn go" onclick="sendRaw([0x01, getI()])">01 val</button>
-    <button class="btn go" onclick="sendRaw([0x02, getI()])">02 val</button>
-    <button class="btn go" onclick="sendRaw([0x03, getI()])">03 val</button>
-    <button class="btn go" onclick="sendRaw([0xA0, getI()])">A0 val</button>
-    <button class="btn go" onclick="sendRaw([0xB0, getI()])">B0 val</button>
-    <button class="btn go" onclick="sendRaw([0xC0, getI()])">C0 val</button>
-    <button class="btn stop" onclick="sendRaw([0x00,0x00])">⏹ 00 00</button>
+    <button class="btn go" onclick="send1([1])">Freq 1</button>
+    <button class="btn go" onclick="send1([2])">Freq 2</button>
+    <button class="btn go" onclick="send1([3])">Freq 3</button>
+    <button class="btn go" onclick="send1([4])">Freq 4</button>
+    <button class="btn go" onclick="send1([5])">Freq 5</button>
+    <button class="btn go" onclick="send1([6])">Freq 6</button>
+    <button class="btn go" onclick="send1([7])">Freq 7</button>
+    <button class="btn go" onclick="send1([8])">Freq 8</button>
+    <button class="btn go" onclick="send1([9])">Freq 9</button>
+    <button class="btn stop" onclick="send1([0])">⏹ STOP [00]</button>
   </div>
 </div>
 
-<!-- FORMAT C: Read first char, send that pattern back -->
 <div class="section">
-  <h2>Format C — Read notify char first</h2>
+  <h2>Service 0xFFFF → Write 0xFF01 (multi-byte)</h2>
   <div class="grid">
-    <button class="btn go" onclick="readNotify()">📖 Read Notify Char</button>
-    <button class="btn go" onclick="readWrite()">📖 Read Write Char</button>
+    <button class="btn go" onclick="send1([0xAA,getI(),0x00])">AA val 00</button>
+    <button class="btn go" onclick="send1([0xFF,getI(),0x00])">FF val 00</button>
+    <button class="btn go" onclick="send1([0x01,getI()])">01 val</button>
+    <button class="btn go" onclick="send1([getI(),0x00,0x00,0x00])">val 0 0 0</button>
+    <button class="btn go" onclick="send1([0x55,0x01,getI(),chk([0x01,getI()])])">55 01 val cs</button>
+    <button class="btn go" onclick="send1([0xA0,getI()])">A0 val</button>
+    <button class="btn stop" onclick="send1([0x00,0x00,0x00,0x00])">⏹ 00 00 00 00</button>
   </div>
-  <p class="note" id="read-result">—</p>
 </div>
 
-<!-- FORMAT D: Common toy protocols -->
 <div class="section">
-  <h2>Format D — Known toy packets</h2>
+  <h2>Service 0xFE00 → Write 0xFF11</h2>
   <div class="grid">
-    <button class="btn go" onclick="sendRaw([0xAA,0x55,0x06,0x01,getI(),0x00,0x00,0x00,0x00,chk([0x06,0x01,getI(),0x00,0x00,0x00,0x00])])">AA55 vibrate</button>
-    <button class="btn go" onclick="sendRaw([0xFF,0x01,getI()])">FF 01 val</button>
-    <button class="btn go" onclick="sendRaw([0x55,0xAA,0x01,getI(),chk([0x01,getI()])])">55AA vibrate</button>
-    <button class="btn go" onclick="sendRaw([0x01,0x00,getI(),0x00])">01 00 val 00</button>
-    <button class="btn go" onclick="sendRaw([getI(),0x00,0x00,0x00])">val 00 00 00</button>
-    <button class="btn go" onclick="sendRaw([0x00,0x00,getI(),0x00])">00 00 val 00</button>
-    <button class="btn stop" onclick="sendRaw([0xFF,0x00,0x00])">⏹ FF 00 00</button>
+    <button class="btn go" onclick="send2([1])">Freq 1</button>
+    <button class="btn go" onclick="send2([2])">Freq 2</button>
+    <button class="btn go" onclick="send2([3])">Freq 3</button>
+    <button class="btn go" onclick="send2([getI()])">Freq [val]</button>
+    <button class="btn go" onclick="send2([0xAA,getI(),0x00])">AA val 00</button>
+    <button class="btn go" onclick="send2([0x01,getI()])">01 val</button>
+    <button class="btn stop" onclick="send2([0])">⏹ STOP [00]</button>
   </div>
 </div>
 
-<!-- FORMAT E: 10-byte with header -->
-<div class="section">
-  <h2>Format E — 10-byte packets</h2>
-  <div class="grid">
-    <button class="btn go" onclick="send10(0x01,0x01)">10b: cmd01 on</button>
-    <button class="btn go" onclick="send10(0x02,0x01)">10b: cmd02 on</button>
-    <button class="btn go" onclick="send10(0x03,0x01)">10b: cmd03 on</button>
-    <button class="btn go" onclick="send10(0x01,0x02)">10b: cmd01 m2</button>
-    <button class="btn stop" onclick="send10(0x01,0x00)">⏹ 10b STOP</button>
-  </div>
-  <p class="note">AA 55 0A cmd mode val 00 00 00 csum</p>
-</div>
-
-<!-- Raw -->
 <div class="section">
   <h2>Raw Hex</h2>
+  <select id="svc-sel">
+    <option value="1">Service 0xFFFF → 0xFF01</option>
+    <option value="2">Service 0xFE00 → 0xFF11</option>
+  </select>
   <div class="hex-row">
-    <input type="text" id="chex" placeholder="AA 55 01 0A 00..." value="0F 01 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00">
+    <input type="text" id="chex" placeholder="01 05 00..." value="01">
     <button id="shex" onclick="sendCustom()">Send</button>
+  </div>
+  <div class="presets">
+    <button class="preset" onclick="set('01')">01</button>
+    <button class="preset" onclick="set('05')">05</button>
+    <button class="preset" onclick="set('09')">09</button>
+    <button class="preset" onclick="set('00')">00</button>
+    <button class="preset" onclick="set('AA 01 05 00')">AA 01 05</button>
+    <button class="preset" onclick="set('FF 05 00 00')">FF 05 00</button>
+    <button class="preset" onclick="set('55 AA 05 00')">55 AA 05</button>
+    <button class="preset" onclick="set('01 05 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00')">20-byte</button>
   </div>
 </div>
 
 <div class="section">
   <button id="clr" onclick="document.getElementById('log').innerHTML=''">clear</button>
-  <h2>Log</h2>
+  <h2>Log (green = device response)</h2>
   <div id="log"></div>
 </div>
 
 <script>
-const SVC  = '0000febe-0000-1000-8000-00805f9b34fb';
-const WUUID= 'd417c028-9818-4354-99d1-2ac09d074591';
-const NUUID= '9ec813b4-256b-4090-93a8-a4f0e9107733';
+const SVC1  = '0000ffff-0000-1000-8000-00805f9b34fb';
+const W1    = '0000ff01-0000-1000-8000-00805f9b34fb';
+const N1    = '0000ff02-0000-1000-8000-00805f9b34fb';
+const SVC2  = '0000fe00-0000-1000-8000-00805f9b34fb';
+const W2    = '0000ff11-0000-1000-8000-00805f9b34fb';
+const N2    = '0000ff22-0000-1000-8000-00805f9b34fb';
 
-let device, server, writeChar, notifyChar, readChar;
+let wChar1, wChar2;
 
 function log(msg, cls='li') {
   const el = document.getElementById('log');
@@ -145,118 +141,95 @@ function log(msg, cls='li') {
 }
 function hex(b) { return Array.from(b).map(x=>x.toString(16).padStart(2,'0').toUpperCase()).join(' '); }
 function getI() { return parseInt(document.getElementById('intensity').value); }
-function chk(arr) { return arr.reduce((a,b)=>a+b,0) & 0xFF; }
-
-function setStatus(t, on=false, err=false) {
-  document.getElementById('stxt').textContent = t;
-  const d = document.getElementById('dot');
-  d.className = 'dot' + (on?' on':err?' err':'');
-}
+function chk(a) { return a.reduce((s,x)=>s+x,0) & 0xFF; }
+function set(v) { document.getElementById('chex').value = v; }
 
 async function connect() {
   try {
     log('Scanning...');
-    device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: [SVC, 0x180A]
+    const dev = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'IOTWF610' }],
+      optionalServices: [SVC1, SVC2]
     });
-    log('Found: ' + device.name);
-    server = await device.gatt.connect();
-    log('GATT connected');
-    const svc = await server.getPrimaryService(SVC);
-    const chars = await svc.getCharacteristics();
-    log(`${chars.length} characteristics:`);
-    for (const c of chars) {
-      const p = c.properties;
-      const flags = [p.read?'R':'',p.write?'W':'',p.writeWithoutResponse?'Wn':'',p.notify?'N':''].join('');
-      log(`  ${c.uuid} [${flags}]`);
-      if (c.uuid === WUUID) { writeChar = c; log('  ^ write ✓','lr'); }
-      if (c.uuid === NUUID) {
-        notifyChar = c;
-        readChar = c;
-        await c.startNotifications();
-        c.addEventListener('characteristicvaluechanged', e => {
-          const v = new Uint8Array(e.target.value.buffer);
-          log(`← NOTIFY: ${hex(v)}`, 'lr');
-        });
-        log('  ^ notify ✓','lr');
-      }
-    }
-    // Also try to read current values
-    try {
-      const v = await notifyChar.readValue();
-      log(`← Read notify: ${hex(new Uint8Array(v.buffer))}`, 'lr');
-    } catch(e){}
-    try {
-      const v = await writeChar.readValue();
-      log(`← Read write: ${hex(new Uint8Array(v.buffer))}`, 'lr');
-    } catch(e){}
+    log('Found: ' + dev.name);
+    const server = await dev.gatt.connect();
+    log('Connected ✓', 'lr');
 
-    device.addEventListener('gattserverdisconnected', ()=>{
-      setStatus('Disconnected',false,true);
-      log('Disconnected','le');
-      document.getElementById('connect-btn').disabled=false;
-      document.getElementById('connect-btn').textContent='Connect';
+    // Service 1 - 0xFFFF
+    try {
+      const s1 = await server.getPrimaryService(SVC1);
+      wChar1 = await s1.getCharacteristic(W1);
+      log('0xFFFF/0xFF01 write ✓', 'lr');
+      try {
+        const n1 = await s1.getCharacteristic(N1);
+        await n1.startNotifications();
+        n1.addEventListener('characteristicvaluechanged', e => {
+          log(`← FFFF/FF02: ${hex(new Uint8Array(e.target.value.buffer))}`, 'lr');
+        });
+        // Read initial value
+        const v = await n1.readValue();
+        log(`← FFFF/FF02 initial: ${hex(new Uint8Array(v.buffer))}`, 'lr');
+        log('0xFFFF/0xFF02 notify ✓', 'lr');
+      } catch(e) { log('FF02 notify err: '+e.message, 'le'); }
+    } catch(e) { log('SVC 0xFFFF err: '+e.message, 'le'); }
+
+    // Service 2 - 0xFE00
+    try {
+      const s2 = await server.getPrimaryService(SVC2);
+      wChar2 = await s2.getCharacteristic(W2);
+      log('0xFE00/0xFF11 write ✓', 'lr');
+      try {
+        const n2 = await s2.getCharacteristic(N2);
+        await n2.startNotifications();
+        n2.addEventListener('characteristicvaluechanged', e => {
+          log(`← FE00/FF22: ${hex(new Uint8Array(e.target.value.buffer))}`, 'lr');
+        });
+        const v = await n2.readValue();
+        log(`← FE00/FF22 initial: ${hex(new Uint8Array(v.buffer))}`, 'lr');
+        log('0xFE00/0xFF22 notify ✓', 'lr');
+      } catch(e) { log('FF22 notify err: '+e.message, 'le'); }
+    } catch(e) { log('SVC 0xFE00 err: '+e.message, 'le'); }
+
+    dev.addEventListener('gattserverdisconnected', () => {
+      document.getElementById('dot').className = 'dot err';
+      document.getElementById('stxt').textContent = 'Disconnected';
+      log('Disconnected', 'le');
+      document.getElementById('connect-btn').disabled = false;
+      document.getElementById('connect-btn').textContent = 'Connect to IOTWF610';
     });
-    setStatus('Connected ✓', true);
-    document.getElementById('connect-btn').disabled=true;
-    document.getElementById('connect-btn').textContent='Connected ✓';
-  } catch(e) { log('Error: '+e.message,'le'); setStatus('Error',false,true); }
+
+    document.getElementById('dot').className = 'dot on';
+    document.getElementById('stxt').textContent = 'Connected — IOTWF610';
+    document.getElementById('connect-btn').disabled = true;
+    document.getElementById('connect-btn').textContent = 'Connected ✓';
+  } catch(e) {
+    log('Error: '+e.message, 'le');
+    document.getElementById('dot').className = 'dot err';
+  }
 }
 
-async function sendRaw(bytes) {
-  if (!writeChar) { log('Not connected','le'); return; }
+async function writeChar(char, bytes) {
+  if (!char) { log('Char not ready', 'le'); return; }
   try {
     const d = new Uint8Array(bytes);
     log(`→ ${hex(d)}`, 'ls');
-    if (writeChar.properties.writeWithoutResponse) {
-      await writeChar.writeValueWithoutResponse(d);
-    } else {
-      await writeChar.writeValue(d);
-    }
-  } catch(e) { log('Send err: '+e.message,'le'); }
+    await char.writeValueWithoutResponse(d);
+  } catch(e) {
+    // fallback
+    try { await char.writeValue(new Uint8Array(bytes)); }
+    catch(e2) { log('Write err: '+e2.message, 'le'); }
+  }
 }
 
-function sendA(mode) {
-  const intensity = getI();
-  const pkt = new Array(20).fill(0);
-  pkt[0] = 0x0F; pkt[1] = mode; pkt[2] = intensity;
-  sendRaw(pkt);
-}
-
-function send10(cmd, mode) {
-  const intensity = getI();
-  const body = [cmd, mode, intensity, 0x00, 0x00, 0x00];
-  const sum = chk(body);
-  sendRaw([0xAA, 0x55, 0x0A, ...body, sum]);
-}
-
-async function readNotify() {
-  if (!notifyChar) { log('No notify char','le'); return; }
-  try {
-    const v = await notifyChar.readValue();
-    const bytes = new Uint8Array(v.buffer);
-    const r = document.getElementById('read-result');
-    r.textContent = 'Notify: ' + hex(bytes);
-    log(`← Read notify: ${hex(bytes)}`, 'lr');
-  } catch(e) { log('Read err: '+e.message,'le'); }
-}
-
-async function readWrite() {
-  if (!writeChar) { log('No write char','le'); return; }
-  try {
-    const v = await writeChar.readValue();
-    const bytes = new Uint8Array(v.buffer);
-    document.getElementById('read-result').textContent = 'Write: ' + hex(bytes);
-    log(`← Read write: ${hex(bytes)}`, 'lr');
-  } catch(e) { log('Read err: '+e.message,'le'); }
-}
+function send1(b) { writeChar(wChar1, b); }
+function send2(b) { writeChar(wChar2, b); }
 
 function sendCustom() {
   const raw = document.getElementById('chex').value;
   const bytes = raw.trim().split(/\s+/).map(h=>parseInt(h,16)).filter(n=>!isNaN(n));
   if (!bytes.length) { log('Invalid hex','le'); return; }
-  sendRaw(bytes);
+  const svc = document.getElementById('svc-sel').value;
+  if (svc === '1') send1(bytes); else send2(bytes);
 }
 </script>
 </body>
