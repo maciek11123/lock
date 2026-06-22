@@ -137,8 +137,8 @@ async function connect() {
   try {
     log('Scanning for LE-DW REVOLVE+...');
     device = await navigator.bluetooth.requestDevice({
-      filters: [{ name: 'LE-DW REVOLVE+' }],
-      optionalServices: [SERVICE_UUID, 0x180A]
+      acceptAllDevices: true,
+      optionalServices: [SERVICE_UUID, '0000febe-0000-1000-8000-00805f9b34fb', 0x180A]
     });
     log(`Found: ${device.name}`);
     setStatus('Connecting...');
