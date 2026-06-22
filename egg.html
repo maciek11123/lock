@@ -3,255 +3,259 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>LE-DW REVOLVE+ Test</title>
+<title>LE-DW REVOLVE+ Test v2</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0a0a0f; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 12px; }
-  h1 { color: #00e5ff; font-size: 16px; margin-bottom: 12px; text-align: center; }
-  .status { background: #111; border: 1px solid #333; border-radius: 8px; padding: 10px; margin-bottom: 12px; text-align: center; }
-  .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #555; margin-right: 6px; }
-  .status-dot.connected { background: #00e676; box-shadow: 0 0 8px #00e676; }
-  .status-dot.error { background: #ff5252; }
-  #connect-btn { width: 100%; padding: 14px; background: #00e5ff; color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 12px; }
-  #connect-btn:disabled { background: #333; color: #666; }
-  .section { background: #111; border: 1px solid #222; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
-  .section h2 { color: #aaa; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .btn { padding: 10px 6px; border: 1px solid #333; border-radius: 6px; background: #1a1a2e; color: #e0e0e0; font-size: 12px; cursor: pointer; text-align: center; }
-  .btn:active { background: #00e5ff22; border-color: #00e5ff; }
-  .btn.stop { background: #2a0000; border-color: #ff5252; color: #ff5252; grid-column: 1 / -1; }
-  .btn.highlight { border-color: #00e5ff44; color: #00e5ff; }
-  .slider-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-  .slider-row label { font-size: 12px; color: #aaa; min-width: 60px; }
-  input[type=range] { flex: 1; accent-color: #00e5ff; }
-  #intensity-val { min-width: 30px; color: #00e5ff; font-size: 14px; font-weight: bold; }
-  .custom-row { display: flex; gap: 6px; margin-top: 6px; }
-  #custom-hex { flex: 1; background: #0a0a0f; border: 1px solid #333; border-radius: 6px; padding: 8px; color: #00e5ff; font-family: 'Courier New', monospace; font-size: 13px; }
-  #send-custom { padding: 8px 14px; background: #1a1a2e; border: 1px solid #00e5ff55; border-radius: 6px; color: #00e5ff; cursor: pointer; font-size: 13px; }
-  #log { background: #050508; border: 1px solid #1a1a1a; border-radius: 6px; padding: 8px; height: 220px; overflow-y: auto; font-size: 11px; line-height: 1.6; }
-  .log-sent { color: #00e5ff; }
-  .log-recv { color: #00e676; }
-  .log-err  { color: #ff5252; }
-  .log-info { color: #888; }
-  #clear-log { font-size: 10px; color: #555; background: none; border: none; cursor: pointer; float: right; margin-bottom: 4px; }
+  h1 { color: #00e5ff; font-size: 15px; margin-bottom: 10px; text-align: center; }
+  .status { background: #111; border: 1px solid #333; border-radius: 8px; padding: 8px; margin-bottom: 10px; text-align: center; font-size: 13px; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:#555; margin-right:5px; vertical-align:middle; }
+  .dot.on { background:#00e676; box-shadow:0 0 6px #00e676; }
+  .dot.err { background:#ff5252; }
+  #connect-btn { width:100%; padding:12px; background:#00e5ff; color:#000; border:none; border-radius:8px; font-size:15px; font-weight:bold; cursor:pointer; margin-bottom:10px; }
+  #connect-btn:disabled { background:#333; color:#666; }
+  .section { background:#111; border:1px solid #1e1e2e; border-radius:8px; padding:10px; margin-bottom:8px; }
+  .section h2 { color:#aaa; font-size:10px; text-transform:uppercase; letter-spacing:1px; margin-bottom:7px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; }
+  .btn { padding:9px 4px; border:1px solid #2a2a3a; border-radius:6px; background:#12121f; color:#ccc; font-size:11px; cursor:pointer; text-align:center; font-family:'Courier New',monospace; }
+  .btn:active { background:#00e5ff22; border-color:#00e5ff; }
+  .btn.go { border-color:#00e67644; color:#00e676; }
+  .btn.stop { background:#1a0000; border-color:#ff525244; color:#ff5252; grid-column:1/-1; }
+  .btn.active { background:#00e5ff22; border-color:#00e5ff; color:#00e5ff; }
+  .slider-row { display:flex; align-items:center; gap:8px; }
+  .slider-row label { font-size:11px; color:#aaa; min-width:50px; }
+  input[type=range] { flex:1; accent-color:#00e5ff; }
+  #ival { color:#00e5ff; font-weight:bold; min-width:25px; }
+  .hex-row { display:flex; gap:6px; margin-top:6px; }
+  #chex { flex:1; background:#050508; border:1px solid #2a2a3a; border-radius:6px; padding:7px; color:#00e5ff; font-family:'Courier New',monospace; font-size:13px; }
+  #shex { padding:7px 12px; background:#12121f; border:1px solid #00e5ff44; border-radius:6px; color:#00e5ff; cursor:pointer; }
+  #log { background:#050508; border:1px solid #111; border-radius:6px; padding:8px; height:200px; overflow-y:auto; font-size:11px; line-height:1.7; }
+  .ls { color:#00e5ff; } .lr { color:#00e676; } .le { color:#ff5252; } .li { color:#555; }
+  #clr { float:right; font-size:10px; color:#333; background:none; border:none; cursor:pointer; }
+  .note { font-size:10px; color:#555; margin-top:4px; }
 </style>
 </head>
 <body>
-<h1>LE-DW REVOLVE+ Tester</h1>
+<h1>LE-DW REVOLVE+ v2</h1>
 
-<div class="status">
-  <span class="status-dot" id="dot"></span>
-  <span id="status-text">Disconnected</span>
-</div>
-
-<button id="connect-btn" onclick="connect()">Connect to LE-DW REVOLVE+</button>
+<div class="status"><span class="dot" id="dot"></span><span id="stxt">Disconnected</span></div>
+<button id="connect-btn" onclick="connect()">Connect</button>
 
 <div class="section">
   <h2>Intensity</h2>
   <div class="slider-row">
     <label>Level</label>
-    <input type="range" id="intensity" min="1" max="20" value="10" oninput="document.getElementById('intensity-val').textContent=this.value">
-    <span id="intensity-val">10</span>
+    <input type="range" id="intensity" min="1" max="20" value="10" oninput="document.getElementById('ival').textContent=this.value">
+    <span id="ival">10</span>
+  </div>
+</div>
+
+<!-- FORMAT A: Womanizer/Lovense-style -->
+<div class="section">
+  <h2>Format A — [0F cmd intensity 00...]  (Lovense-style)</h2>
+  <div class="grid">
+    <button class="btn go" onclick="sendA(1)">A: Mode 1</button>
+    <button class="btn go" onclick="sendA(2)">A: Mode 2</button>
+    <button class="btn go" onclick="sendA(3)">A: Mode 3</button>
+    <button class="btn go" onclick="sendA(4)">A: Mode 4</button>
+    <button class="btn stop" onclick="sendRaw([0x0F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00])">⏹ A STOP</button>
+  </div>
+  <p class="note">e.g. 0F 01 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</p>
+</div>
+
+<!-- FORMAT B: Simple [cmd intensity] -->
+<div class="section">
+  <h2>Format B — Simple 2-byte [cmd val]</h2>
+  <div class="grid3">
+    <button class="btn go" onclick="sendRaw([0x01, getI()])">01 val</button>
+    <button class="btn go" onclick="sendRaw([0x02, getI()])">02 val</button>
+    <button class="btn go" onclick="sendRaw([0x03, getI()])">03 val</button>
+    <button class="btn go" onclick="sendRaw([0xA0, getI()])">A0 val</button>
+    <button class="btn go" onclick="sendRaw([0xB0, getI()])">B0 val</button>
+    <button class="btn go" onclick="sendRaw([0xC0, getI()])">C0 val</button>
+    <button class="btn stop" onclick="sendRaw([0x00,0x00])">⏹ 00 00</button>
+  </div>
+</div>
+
+<!-- FORMAT C: Read first char, send that pattern back -->
+<div class="section">
+  <h2>Format C — Read notify char first</h2>
+  <div class="grid">
+    <button class="btn go" onclick="readNotify()">📖 Read Notify Char</button>
+    <button class="btn go" onclick="readWrite()">📖 Read Write Char</button>
+  </div>
+  <p class="note" id="read-result">—</p>
+</div>
+
+<!-- FORMAT D: Common toy protocols -->
+<div class="section">
+  <h2>Format D — Known toy packets</h2>
+  <div class="grid">
+    <button class="btn go" onclick="sendRaw([0xAA,0x55,0x06,0x01,getI(),0x00,0x00,0x00,0x00,chk([0x06,0x01,getI(),0x00,0x00,0x00,0x00])])">AA55 vibrate</button>
+    <button class="btn go" onclick="sendRaw([0xFF,0x01,getI()])">FF 01 val</button>
+    <button class="btn go" onclick="sendRaw([0x55,0xAA,0x01,getI(),chk([0x01,getI()])])">55AA vibrate</button>
+    <button class="btn go" onclick="sendRaw([0x01,0x00,getI(),0x00])">01 00 val 00</button>
+    <button class="btn go" onclick="sendRaw([getI(),0x00,0x00,0x00])">val 00 00 00</button>
+    <button class="btn go" onclick="sendRaw([0x00,0x00,getI(),0x00])">00 00 val 00</button>
+    <button class="btn stop" onclick="sendRaw([0xFF,0x00,0x00])">⏹ FF 00 00</button>
+  </div>
+</div>
+
+<!-- FORMAT E: 10-byte with header -->
+<div class="section">
+  <h2>Format E — 10-byte packets</h2>
+  <div class="grid">
+    <button class="btn go" onclick="send10(0x01,0x01)">10b: cmd01 on</button>
+    <button class="btn go" onclick="send10(0x02,0x01)">10b: cmd02 on</button>
+    <button class="btn go" onclick="send10(0x03,0x01)">10b: cmd03 on</button>
+    <button class="btn go" onclick="send10(0x01,0x02)">10b: cmd01 m2</button>
+    <button class="btn stop" onclick="send10(0x01,0x00)">⏹ 10b STOP</button>
+  </div>
+  <p class="note">AA 55 0A cmd mode val 00 00 00 csum</p>
+</div>
+
+<!-- Raw -->
+<div class="section">
+  <h2>Raw Hex</h2>
+  <div class="hex-row">
+    <input type="text" id="chex" placeholder="AA 55 01 0A 00..." value="0F 01 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00">
+    <button id="shex" onclick="sendCustom()">Send</button>
   </div>
 </div>
 
 <div class="section">
-  <h2>Protocol 3 — JY Format [55 02 06 mode intensity checksum]</h2>
-  <div class="btn-grid">
-    <button class="btn highlight" onclick="sendJY(1)">JY Mode 1</button>
-    <button class="btn highlight" onclick="sendJY(2)">JY Mode 2</button>
-    <button class="btn highlight" onclick="sendJY(3)">JY Mode 3</button>
-    <button class="btn highlight" onclick="sendJY(4)">JY Mode 4</button>
-    <button class="btn highlight" onclick="sendJY(5)">JY Mode 5</button>
-    <button class="btn highlight" onclick="sendJY(6)">JY Mode 6</button>
-    <button class="btn stop" onclick="sendJY(0)">⏹ JY STOP [55 02 06 00 01 62]</button>
-  </div>
-</div>
-
-<div class="section">
-  <h2>Protocol 2 — Classic Format [AA cmd val FF FF]</h2>
-  <div class="btn-grid">
-    <button class="btn" onclick="sendClassic('01')">Classic Intensity</button>
-    <button class="btn" onclick="sendClassic('02')">Classic Channel 2</button>
-    <button class="btn" onclick="sendClassicRaw([0xAA,0x01,0x0A,0xFF,0xFF])">Classic lvl 10</button>
-    <button class="btn" onclick="sendClassicRaw([0xAA,0x02,0x0A,0xFF,0xFF])">Classic ch2 10</button>
-    <button class="btn stop" onclick="sendClassicRaw([0xAA,0x00,0xFF,0xFF,0xFF])">⏹ Classic STOP</button>
-  </div>
-</div>
-
-<div class="section">
-  <h2>Protocol 2 — Multi-motor [55 ch len val csum]</h2>
-  <div class="btn-grid">
-    <button class="btn" onclick="sendMotor(1)">Motor 1 [55 03 05 val 5E]</button>
-    <button class="btn" onclick="sendMotor(2)">Motor 2 [55 02 05 val 5D]</button>
-    <button class="btn" onclick="sendMotor(3)">Motor 3 [55 05 05 val 60]</button>
-    <button class="btn stop" onclick="sendRaw([0x55,0x02,0x05,0x00,0x5D])">⏹ Motor STOP</button>
-  </div>
-</div>
-
-<div class="section">
-  <h2>Raw Hex Send</h2>
-  <div class="custom-row">
-    <input type="text" id="custom-hex" placeholder="e.g. AA 01 0A FF FF" value="AA 01 0A FF FF">
-    <button id="send-custom" onclick="sendCustom()">Send</button>
-  </div>
-  <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">
-    <button class="btn" style="font-size:10px" onclick="document.getElementById('custom-hex').value='55 02 06 01 0A 68'">JY ex</button>
-    <button class="btn" style="font-size:10px" onclick="document.getElementById('custom-hex').value='AA AA 01 00 00 00 00 00 00 00'">Alt 10b</button>
-    <button class="btn" style="font-size:10px" onclick="document.getElementById('custom-hex').value='01 0A'">2-byte</button>
-    <button class="btn" style="font-size:10px" onclick="document.getElementById('custom-hex').value='FF 00 00 00 00'">FF stop</button>
-  </div>
-</div>
-
-<div class="section">
-  <button id="clear-log" onclick="document.getElementById('log').innerHTML=''">clear</button>
+  <button id="clr" onclick="document.getElementById('log').innerHTML=''">clear</button>
   <h2>Log</h2>
   <div id="log"></div>
 </div>
 
 <script>
-const SERVICE_UUID    = '0000febe-0000-1000-8000-00805f9b34fb';
-const WRITE_CHAR_UUID = 'd417c028-9818-4354-99d1-2ac09d074591';
-const NOTIFY_CHAR_UUID= '9ec813b4-256b-4090-93a8-a4f0e9107'; // partial - will discover
+const SVC  = '0000febe-0000-1000-8000-00805f9b34fb';
+const WUUID= 'd417c028-9818-4354-99d1-2ac09d074591';
+const NUUID= '9ec813b4-256b-4090-93a8-a4f0e9107733';
 
-let device, server, writeChar, notifyChar;
+let device, server, writeChar, notifyChar, readChar;
 
-function log(msg, cls='log-info') {
+function log(msg, cls='li') {
   const el = document.getElementById('log');
-  const now = new Date().toTimeString().slice(0,8);
-  el.innerHTML += `<div class="${cls}">[${now}] ${msg}</div>`;
+  const t = new Date().toTimeString().slice(3,8);
+  el.innerHTML += `<div class="${cls}">[${t}] ${msg}</div>`;
   el.scrollTop = el.scrollHeight;
 }
+function hex(b) { return Array.from(b).map(x=>x.toString(16).padStart(2,'0').toUpperCase()).join(' '); }
+function getI() { return parseInt(document.getElementById('intensity').value); }
+function chk(arr) { return arr.reduce((a,b)=>a+b,0) & 0xFF; }
 
-function hex(bytes) {
-  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
-}
-
-function setStatus(text, connected=false, err=false) {
-  document.getElementById('status-text').textContent = text;
-  const dot = document.getElementById('dot');
-  dot.className = 'status-dot' + (connected ? ' connected' : err ? ' error' : '');
+function setStatus(t, on=false, err=false) {
+  document.getElementById('stxt').textContent = t;
+  const d = document.getElementById('dot');
+  d.className = 'dot' + (on?' on':err?' err':'');
 }
 
 async function connect() {
   try {
-    log('Scanning for LE-DW REVOLVE+...');
+    log('Scanning...');
     device = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
-      optionalServices: [SERVICE_UUID, '0000febe-0000-1000-8000-00805f9b34fb', 0x180A]
+      optionalServices: [SVC, 0x180A]
     });
-    log(`Found: ${device.name}`);
-    setStatus('Connecting...');
+    log('Found: ' + device.name);
     server = await device.gatt.connect();
     log('GATT connected');
-
-    // Get our custom service
-    const service = await server.getPrimaryService(SERVICE_UUID);
-    log(`Service 0xFEBE OK`);
-
-    // Get all characteristics
-    const chars = await service.getCharacteristics();
-    log(`Found ${chars.length} characteristics:`);
+    const svc = await server.getPrimaryService(SVC);
+    const chars = await svc.getCharacteristics();
+    log(`${chars.length} characteristics:`);
     for (const c of chars) {
-      log(`  ${c.uuid} [${c.properties.read?'R':''}${c.properties.write?'W':''}${c.properties.writeWithoutResponse?'Wn':''}${c.properties.notify?'N':''}]`);
-      if (c.uuid === WRITE_CHAR_UUID) {
-        writeChar = c;
-        log('  ^ Write char assigned ✓', 'log-recv');
-      }
-      if (c.properties.notify && c.uuid !== WRITE_CHAR_UUID) {
+      const p = c.properties;
+      const flags = [p.read?'R':'',p.write?'W':'',p.writeWithoutResponse?'Wn':'',p.notify?'N':''].join('');
+      log(`  ${c.uuid} [${flags}]`);
+      if (c.uuid === WUUID) { writeChar = c; log('  ^ write ✓','lr'); }
+      if (c.uuid === NUUID) {
         notifyChar = c;
+        readChar = c;
         await c.startNotifications();
-        c.addEventListener('characteristicvaluechanged', onNotify);
-        log('  ^ Notify subscribed ✓', 'log-recv');
+        c.addEventListener('characteristicvaluechanged', e => {
+          const v = new Uint8Array(e.target.value.buffer);
+          log(`← NOTIFY: ${hex(v)}`, 'lr');
+        });
+        log('  ^ notify ✓','lr');
       }
     }
-
-    // Try to read device info
+    // Also try to read current values
     try {
-      const infoService = await server.getPrimaryService(0x180A);
-      const infoChars = await infoService.getCharacteristics();
-      for (const c of infoChars) {
-        try {
-          const val = await c.readValue();
-          const txt = new TextDecoder().decode(val);
-          log(`DevInfo ${c.uuid.slice(4,8)}: ${txt}`, 'log-recv');
-        } catch(e) {}
-      }
-    } catch(e) {}
+      const v = await notifyChar.readValue();
+      log(`← Read notify: ${hex(new Uint8Array(v.buffer))}`, 'lr');
+    } catch(e){}
+    try {
+      const v = await writeChar.readValue();
+      log(`← Read write: ${hex(new Uint8Array(v.buffer))}`, 'lr');
+    } catch(e){}
 
-    device.addEventListener('gattserverdisconnected', () => {
-      setStatus('Disconnected', false, true);
-      log('Disconnected!', 'log-err');
-      document.getElementById('connect-btn').disabled = false;
+    device.addEventListener('gattserverdisconnected', ()=>{
+      setStatus('Disconnected',false,true);
+      log('Disconnected','le');
+      document.getElementById('connect-btn').disabled=false;
+      document.getElementById('connect-btn').textContent='Connect';
     });
-
-    setStatus('Connected — LE-DW REVOLVE+', true);
-    document.getElementById('connect-btn').disabled = true;
-    document.getElementById('connect-btn').textContent = 'Connected ✓';
-
-  } catch(e) {
-    log('Error: ' + e.message, 'log-err');
-    setStatus('Error', false, true);
-  }
-}
-
-function onNotify(evt) {
-  const val = new Uint8Array(evt.target.value.buffer);
-  log(`← NOTIFY: ${hex(val)}`, 'log-recv');
+    setStatus('Connected ✓', true);
+    document.getElementById('connect-btn').disabled=true;
+    document.getElementById('connect-btn').textContent='Connected ✓';
+  } catch(e) { log('Error: '+e.message,'le'); setStatus('Error',false,true); }
 }
 
 async function sendRaw(bytes) {
-  if (!writeChar) { log('Not connected', 'log-err'); return; }
+  if (!writeChar) { log('Not connected','le'); return; }
   try {
-    const data = new Uint8Array(bytes);
-    log(`→ SEND: ${hex(data)}`, 'log-sent');
+    const d = new Uint8Array(bytes);
+    log(`→ ${hex(d)}`, 'ls');
     if (writeChar.properties.writeWithoutResponse) {
-      await writeChar.writeValueWithoutResponse(data);
+      await writeChar.writeValueWithoutResponse(d);
     } else {
-      await writeChar.writeValue(data);
+      await writeChar.writeValue(d);
     }
-  } catch(e) {
-    log('Send error: ' + e.message, 'log-err');
-  }
+  } catch(e) { log('Send err: '+e.message,'le'); }
 }
 
-function getIntensity() {
-  return parseInt(document.getElementById('intensity').value);
+function sendA(mode) {
+  const intensity = getI();
+  const pkt = new Array(20).fill(0);
+  pkt[0] = 0x0F; pkt[1] = mode; pkt[2] = intensity;
+  sendRaw(pkt);
 }
 
-// Protocol 3 — JY format: [0x55, 0x02, 0x06, mode, intensity, checksum]
-function sendJY(mode) {
-  const intensity = mode === 0 ? 1 : getIntensity() * 5; // map 1-20 → 5-100
-  const clamped = Math.min(100, Math.max(1, intensity));
-  const checksum = (93 + mode + clamped) & 0xFF;
-  sendRaw([0x55, 0x02, 0x06, mode, clamped, checksum]);
+function send10(cmd, mode) {
+  const intensity = getI();
+  const body = [cmd, mode, intensity, 0x00, 0x00, 0x00];
+  const sum = chk(body);
+  sendRaw([0xAA, 0x55, 0x0A, ...body, sum]);
 }
 
-// Protocol 2 — classic [0xAA, cmd, val, 0xFF, 0xFF]
-function sendClassic(cmd) {
-  const val = getIntensity();
-  const cmdByte = parseInt(cmd, 16);
-  sendRaw([0xAA, cmdByte, val, 0xFF, 0xFF]);
+async function readNotify() {
+  if (!notifyChar) { log('No notify char','le'); return; }
+  try {
+    const v = await notifyChar.readValue();
+    const bytes = new Uint8Array(v.buffer);
+    const r = document.getElementById('read-result');
+    r.textContent = 'Notify: ' + hex(bytes);
+    log(`← Read notify: ${hex(bytes)}`, 'lr');
+  } catch(e) { log('Read err: '+e.message,'le'); }
 }
 
-function sendClassicRaw(bytes) { sendRaw(bytes); }
-
-// Protocol 2 — multi-motor [0x55, ch, len, val, csum]
-function sendMotor(motor) {
-  const val = getIntensity();
-  const motorMap = {
-    1: [0x55, 0x03, 0x05, val, 0x5E],
-    2: [0x55, 0x02, 0x05, val, 0x5D],
-    3: [0x55, 0x05, 0x05, val, 0x60],
-  };
-  sendRaw(motorMap[motor] || motorMap[2]);
+async function readWrite() {
+  if (!writeChar) { log('No write char','le'); return; }
+  try {
+    const v = await writeChar.readValue();
+    const bytes = new Uint8Array(v.buffer);
+    document.getElementById('read-result').textContent = 'Write: ' + hex(bytes);
+    log(`← Read write: ${hex(bytes)}`, 'lr');
+  } catch(e) { log('Read err: '+e.message,'le'); }
 }
 
-// Custom hex input
 function sendCustom() {
-  const raw = document.getElementById('custom-hex').value;
-  const bytes = raw.trim().split(/\s+/).map(h => parseInt(h, 16)).filter(n => !isNaN(n));
-  if (bytes.length === 0) { log('Invalid hex', 'log-err'); return; }
+  const raw = document.getElementById('chex').value;
+  const bytes = raw.trim().split(/\s+/).map(h=>parseInt(h,16)).filter(n=>!isNaN(n));
+  if (!bytes.length) { log('Invalid hex','le'); return; }
   sendRaw(bytes);
 }
 </script>
