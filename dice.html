@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dice</title>
+<link rel="manifest" href="/lock/manifest-dice.json">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/lock/sw.js', {scope: '/lock/'});
+}
+</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  width: 100vw; height: 100vh;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.face {
+  width: 100vmin; height: 100vmin;
+  border-radius: 50%;
+  background: #0a0a0a;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3vmin;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ambient ring */
+.face::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid #1e1e2e;
+  pointer-events: none;
+}
+
+/* Status dot */
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #333;
+  transition: background 0.4s;
+  flex-shrink: 0;
+}
+.dot.connecting { background: #facc15; animation: pulse 1s infinite; }
+.dot.on  { background: #4ade80; }
+.dot.off { background: #333; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Big toggle button */
+.toggle {
+  width: 38vmin; height: 38vmin;
+  border-radius: 50%;
+  border: none; outline: none; cursor: pointer;
+  font-size: 13vmin;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s, background 0.25s, box-shadow 0.25s;
+  -webkit-user-select: none; user-select: none;
+  background: #1a1a2a;
+  box-shadow: 0 0 0 0 transparent;
+}
+.toggle:active { transform: scale(0.92); }
+.toggle.on {
+  background: radial-gradient(circle at 35% 35%, #a855f7, #6d28d9);
+  box-shadow: 0 0 30px 8px rgba(139,92,246,.45);
+}
+.toggle.disabled { opacity: 0.3; pointer-events: none; }
+
+/* Intensity arc label */
+.status-text {
+  font-size: 3vmin;
+  color: #444;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-height: 4vmin;
+  text-align: center;
+  transition: color 0.3s;
+}
+.status-text.on  { color: #a78bfa; }
+.status-text.err { color: #f87171; }
+.status-text.wait { color: #facc15; }
+
+/* Crown-style intensity buttons — positioned on the sides */
+.side-btn {
+  position: absolute;
+  width: 10vmin; height: 10vmin;
+  border-radius: 50%; border: none; cursor: pointer;
+  font-size: 5vmin; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  background: #1a1a2a; color: #888;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  -webkit-user-select: none; user-select: none;
+}
+.side-btn:active { transform: scale(0.88); background: #2a2a3a; color: #fff; }
+.side-btn.minus { left: 4vmin; top: 50%; transform: translateY(-50%); }
+.side-btn.minus:active { transform: translateY(-50%) scale(0.88); }
+.side-btn.plus  { right: 4vmin; top: 50%; transform: translateY(-50%); }
+.side-btn.plus:active  { transform: translateY(-50%) scale(0.88); }
+
+/* Timer buttons row */
+.timer-row {
+  display: flex; gap: 3vmin;
+  flex-direction: row; align-items: center; justify-content: center;
+}
+.timer-btn {
+  background: #111120; border: 1px solid #2a2a3a; color: #666;
+  border-radius: 8px; font-size: 3vmin; font-weight: 700;
+  padding: 2.5vmin 3.5vmin; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, transform .1s;
+  -webkit-user-select: none; user-select: none;
+}
+.timer-btn:active { transform: scale(0.88); }
+.timer-btn.active { background: #2a1a4a; border-color: #a855f7; color: #c084fc; }
+
+/* Shake indicator */
+.shake-btn {
+  background: #111120; border: 1px solid #2a2a3a; color: #555;
+  border-radius: 20px; font-size: 3vmin; font-weight: 700;
+  padding: 2vmin 5vmin; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  -webkit-user-select: none; user-select: none;
+}
+.shake-btn.active { background: #1a2a1a; border-color: #4ade80; color: #4ade80; }
+
+/* Intensity value */
+.intensity-val {
+  font-size: 4vmin; font-weight: 700; color: #555;
+  letter-spacing: 0.05em;
+  transition: color 0.3s;
+}
+.intensity-val.on { color: #c084fc; }
+</style>
+</head>
+<body>
+<div class="face">
+
+  <!-- Side intensity buttons -->
+  <button class="side-btn minus" onclick="changeIntensity(-10)">−</button>
+  <button class="side-btn plus"  onclick="changeIntensity(+10)">+</button>
+
+  <!-- Status dot -->
+  <div class="dot connecting" id="dot"></div>
+
+  <!-- Main toggle -->
+  <button class="toggle disabled" id="toggle" onclick="onToggle()">⚡</button>
+
+  <!-- Labels -->
+  <div class="status-text wait" id="status">connecting</div>
+  <div class="intensity-val" id="ival">50%</div>
+
+  <!-- Timers -->
+  <div class="timer-row">
+    <button class="timer-btn" id="t5"  onclick="startTimer(5)">5s</button>
+    <button class="timer-btn" id="t10" onclick="startTimer(10)">10s</button>
+    <button class="timer-btn" id="t30" onclick="startTimer(30)">30s</button>
+    <button class="timer-btn" id="t60" onclick="startTimer(60)">1m</button>
+  </div>
+
+  <!-- Dice / random mode -->
+  <button class="shake-btn" id="dice-btn" onclick="toggleDice()">🎲 Dice</button>
+
+  <!-- Shake toggle -->
+  <button class="shake-btn" id="shake-btn" onclick="toggleShake()">🫨 Shake</button>
+
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+const HARDCODED_HOST_ID = 'locks-mac-home';
+
+let conn = null;
+let isOn = false;
+let intensity = 50;
+let _pendingStop = false;
+
+const dot    = document.getElementById('dot');
+const toggle = document.getElementById('toggle');
+const status = document.getElementById('status');
+const ival   = document.getElementById('ival');
+
+const peer = new Peer();
+
+function setStatus(msg, cls) {
+  status.textContent = msg;
+  status.className = 'status-text ' + (cls || '');
+}
+
+function setConnected(yes) {
+  toggle.classList.toggle('disabled', !yes);
+  if (!yes) {
+    dot.className = 'dot connecting';
+    setStatus('connecting', 'wait');
+    if (isOn) turnOff(true);
+  } else {
+    dot.className = 'dot off';
+    setStatus('ready', '');
+    if (_pendingStop) {
+      _pendingStop = false;
+      send({ action: 'stop' });
+    }
+  }
+}
+
+function fetchAndConnect() {
+  peer.on('open', () => {
+    conn = peer.connect('locks-mac-home');
+    conn.on('open', () => setConnected(true));
+    conn.on('error', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
+    conn.on('close', () => { setConnected(false); setTimeout(fetchAndConnect, 3000); });
+  });
+}
+
+fetchAndConnect();
+
+function send(msg) {
+  if (conn && conn.open) conn.send(msg);
+  else if (msg && msg.action === 'stop') _pendingStop = true;
+}
+
+function turnOn() {
+  isOn = true;
+  toggle.classList.add('on');
+  toggle.textContent = '⚡';
+  dot.className = 'dot on';
+  ival.classList.add('on');
+  setStatus('on', 'on');
+  send({ action: 'constant', val: intensity });
+}
+
+function turnOff(silent) {
+  isOn = false;
+  toggle.classList.remove('on');
+  toggle.textContent = '⚡';
+  dot.className = 'dot off';
+  ival.classList.remove('on');
+  setStatus(silent ? 'connecting' : 'off', silent ? 'wait' : '');
+  if (!silent) send({ action: 'stop' });
+}
+
+function onToggle() {
+  if (_diceActive) { stopDice(); return; }
+  if (isOn) turnOff(false);
+  else turnOn();
+}
+
+function changeIntensity(delta) {
+  intensity = Math.min(100, Math.max(0, intensity + delta));
+  ival.textContent = intensity + '%';
+  if (isOn) send({ action: 'constant', val: intensity });
+}
+
+// ── Timers ────────────────────────────────────────────────────────────────
+let _timerHandle = null;
+let _activeTimerId = null;
+let _timerEnd = null;
+
+function clearTimer() {
+  if (_timerHandle) { clearInterval(_timerHandle); _timerHandle = null; }
+  _timerEnd = null;
+  if (_activeTimerId) {
+    document.getElementById(_activeTimerId)?.classList.remove('active');
+    _activeTimerId = null;
+  }
+}
+
+function startTimer(secs) {
+  clearTimer();
+  const btnId = 't' + (secs === 60 ? 60 : secs);
+  _activeTimerId = btnId;
+  _timerEnd = Date.now() + secs * 1000;
+  document.getElementById(btnId)?.classList.add('active');
+  if (!isOn) turnOn();
+  _timerHandle = setInterval(() => {
+    if (Date.now() >= _timerEnd) {
+      stopDice();
+      turnOff(false);
+      clearTimer();
+    }
+  }, 250);
+}
+
+// ── Dice / random mode ────────────────────────────────────────────────────
+let _diceActive = false;
+let _diceTimeout = null;
+
+function rand(minMs, maxMs) {
+  return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+}
+
+function diceStep() {
+  if (!_diceActive) return;
+  // ON phase: 1s–20s
+  const onMs = rand(1000, 20000);
+  isOn = true;
+  toggle.classList.add('on');
+  dot.className = 'dot on';
+  ival.classList.add('on');
+  setStatus('~' + Math.round(onMs/1000) + 's', 'on');
+  send({ action: 'constant', val: intensity });
+
+  _diceTimeout = setTimeout(() => {
+    if (!_diceActive) return;
+    // OFF phase: 1s–120s
+    const offMs = rand(1000, 120000);
+    isOn = false;
+    toggle.classList.remove('on');
+    dot.className = 'dot off';
+    ival.classList.remove('on');
+    setStatus('~' + Math.round(offMs/1000) + 's', '');
+    send({ action: 'stop' });
+
+    _diceTimeout = setTimeout(diceStep, offMs);
+  }, onMs);
+}
+
+function toggleDice() {
+  if (_diceActive) {
+    stopDice();
+  } else {
+    stopDice(); // clear any remnants
+    _diceActive = true;
+    document.getElementById('dice-btn').classList.add('active');
+    document.getElementById('dice-btn').textContent = '🎲 Stop';
+    diceStep();
+  }
+}
+
+function stopDice() {
+  _diceActive = false;
+  if (_diceTimeout) { clearTimeout(_diceTimeout); _diceTimeout = null; }
+  const btn = document.getElementById('dice-btn');
+  if (btn) { btn.classList.remove('active'); btn.textContent = '🎲 Dice'; }
+  if (isOn) turnOff(false);
+}
+
+// ── Shake ─────────────────────────────────────────────────────────────────
+let _shakeActive = false;
+let _lastShakeTime = 0;
+let _lastMag = 9.8;
+
+async function toggleShake() {
+  if (_shakeActive) { stopShake(); return; }
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const p = await DeviceMotionEvent.requestPermission();
+      if (p !== 'granted') return;
+    } catch(e) { return; }
+  }
+  _shakeActive = true;
+  document.getElementById('shake-btn').classList.add('active');
+  window.addEventListener('devicemotion', handleShake);
+}
+
+function stopShake() {
+  _shakeActive = false;
+  document.getElementById('shake-btn').classList.remove('active');
+  window.removeEventListener('devicemotion', handleShake);
+}
+
+function handleShake(e) {
+  if (!_shakeActive) return;
+  const now = Date.now();
+  if (now - _lastShakeTime < 80) return;
+  _lastShakeTime = now;
+  const a = e.accelerationIncludingGravity;
+  if (!a) return;
+  const mag = Math.sqrt(a.x**2 + a.y**2 + a.z**2);
+  const delta = Math.abs(mag - _lastMag);
+  _lastMag = mag;
+  if (delta > 3) {
+    const newVal = Math.min(100, Math.round((delta / 20) * 100));
+    if (newVal > 5) {
+      if (!isOn) turnOn();
+      intensity = newVal;
+      ival.textContent = intensity + '%';
+      send({ action: 'constant', val: intensity });
+    }
+  }
+}
+
+</script>
+</body>
+</html>
