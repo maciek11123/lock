@@ -235,6 +235,10 @@ peer.on('connection', conn => {
       playPattern(data.vals);
     } else if (data.action === 'stop') {
       triggerLocalStop();
+    } else if (data.action === 'alarm') {
+      scheduleAlarm(data.startAt);
+    } else if (data.action === 'alarm_cancel') {
+      cancelAlarm();
     }
   });
   conn.on('close', () => {
@@ -270,7 +274,48 @@ function playPattern(vals) {
 }
 
 function triggerLocalVibrate() { clearInterval(patternInterval); sendVibrate(); }
-function triggerLocalStop() { clearInterval(patternInterval); onSlider(0); sendStop(); }
+function triggerLocalStop() { clearInterval(patternInterval); onSlider(0); sendStop(); cancelAlarm(); }
+
+// ── Alarm ─────────────────────────────────────────────────────────────────
+let _alarmTimeout = null;
+let _alarmRampInterval = null;
+
+function cancelAlarm() {
+  if (_alarmTimeout) { clearTimeout(_alarmTimeout); _alarmTimeout = null; }
+  if (_alarmRampInterval) { clearInterval(_alarmRampInterval); _alarmRampInterval = null; }
+  log('⏰ Alarm cancelled', 'info');
+}
+
+function scheduleAlarm(startAt) {
+  cancelAlarm();
+  const delay = startAt - Date.now();
+  if (delay < 0) { log('⏰ Alarm time is in the past', 'err'); return; }
+  log(`⏰ Alarm set — fires in ${Math.round(delay/1000)}s`, 'ok');
+  _alarmTimeout = setTimeout(() => {
+    _alarmTimeout = null;
+    log('⏰ Alarm firing — ramping up over 10 minutes', 'ok');
+    clearInterval(patternInterval);
+    // Ramp 0→100 over 10 minutes = 600 seconds
+    // Step every 6 seconds → 100 steps
+    const RAMP_DURATION_MS = 10 * 60 * 1000;
+    const STEP_MS = 6000;
+    const STEPS = RAMP_DURATION_MS / STEP_MS; // 100
+    let step = 0;
+    // Start at 1 so there's immediate physical feedback
+    intensity = 1; onSlider(intensity); sendVibrate();
+    _alarmRampInterval = setInterval(() => {
+      step++;
+      intensity = Math.min(100, Math.round((step / STEPS) * 100));
+      onSlider(intensity);
+      sendVibrate();
+      if (step >= STEPS) {
+        clearInterval(_alarmRampInterval);
+        _alarmRampInterval = null;
+        log('⏰ Alarm ramp complete — at 100%', 'ok');
+      }
+    }, STEP_MS);
+  }, delay);
+}
 
 const SVC_UUID   = '00001000-0000-1000-8000-00805f9b34fb';
 const SVC_BATT   = '0000180f-0000-1000-8000-00805f9b34fb';
@@ -326,6 +371,8 @@ async function pollCommand() {
     if (cmd.action === 'constant') { clearInterval(patternInterval); intensity = cmd.val; onSlider(intensity); sendVibrate(); }
     else if (cmd.action === 'pattern') { playPattern(cmd.vals); }
     else if (cmd.action === 'stop') { triggerLocalStop(); }
+    else if (cmd.action === 'alarm') { scheduleAlarm(cmd.startAt); }
+    else if (cmd.action === 'alarm_cancel') { cancelAlarm(); }
   } catch(e) {}
 }
 setInterval(pollCommand, 3000);
