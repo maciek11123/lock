@@ -1,4 +1,4 @@
-const CACHE = 'lock-v11';
+const CACHE = 'lock-v12';
 const URLS = [
   '/lock/host.html',
   '/lock/remote-full.html',
