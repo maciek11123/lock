@@ -163,6 +163,9 @@ html, body {
     <button class="timer-btn" id="t60" onclick="startTimer(60)">1m</button>
   </div>
 
+  <!-- Dice / random mode -->
+  <button class="shake-btn" id="dice-btn" onclick="toggleDice()">🎲 Dice</button>
+
   <!-- Shake toggle -->
   <button class="shake-btn" id="shake-btn" onclick="toggleShake()">🫨 Shake</button>
 
@@ -176,8 +179,6 @@ let conn = null;
 let isOn = false;
 let intensity = 50;
 let _pendingStop = false;
-let _pulseTimer = null;
-let _pulsePhase = false; // true = currently ON phase
 
 const dot    = document.getElementById('dot');
 const toggle = document.getElementById('toggle');
@@ -196,7 +197,7 @@ function setConnected(yes) {
   if (!yes) {
     dot.className = 'dot connecting';
     setStatus('connecting', 'wait');
-    if (isOn) turnOff(true); // silent off
+    if (isOn) turnOff(true);
   } else {
     dot.className = 'dot off';
     setStatus('ready', '');
@@ -243,49 +244,10 @@ function turnOff(silent) {
   if (!silent) send({ action: 'stop' });
 }
 
-function stopPulse() {
-  if (_pulseTimer) { clearInterval(_pulseTimer); _pulseTimer = null; }
-  _pulsePhase = false;
-}
-
-function startPulse() {
-  stopPulse();
-  // Fire ON immediately
-  _pulsePhase = true;
-  isOn = true;
-  toggle.classList.add('on');
-  dot.className = 'dot on';
-  ival.classList.add('on');
-  setStatus('pulse', 'on');
-  send({ action: 'constant', val: intensity });
-  _pulseTimer = setInterval(() => {
-    _pulsePhase = !_pulsePhase;
-    if (_pulsePhase) {
-      isOn = true;
-      toggle.classList.add('on');
-      dot.className = 'dot on';
-      ival.classList.add('on');
-      setStatus('pulse', 'on');
-      send({ action: 'constant', val: intensity });
-    } else {
-      isOn = false;
-      toggle.classList.remove('on');
-      dot.className = 'dot off';
-      ival.classList.remove('on');
-      setStatus('pause', '');
-      send({ action: 'stop' });
-    }
-  }, 1000);
-}
-
 function onToggle() {
-  if (_pulseTimer) {
-    // Pulsing → stop everything
-    stopPulse();
-    turnOff(false);
-  } else {
-    startPulse();
-  }
+  if (_diceActive) { stopDice(); return; }
+  if (isOn) turnOff(false);
+  else turnOn();
 }
 
 function changeIntensity(delta) {
@@ -317,11 +279,65 @@ function startTimer(secs) {
   if (!isOn) turnOn();
   _timerHandle = setInterval(() => {
     if (Date.now() >= _timerEnd) {
-      stopPulse();
+      stopDice();
       turnOff(false);
       clearTimer();
     }
   }, 250);
+}
+
+// ── Dice / random mode ────────────────────────────────────────────────────
+let _diceActive = false;
+let _diceTimeout = null;
+
+function rand(minMs, maxMs) {
+  return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+}
+
+function diceStep() {
+  if (!_diceActive) return;
+  // ON phase: 1s–20s
+  const onMs = rand(1000, 20000);
+  isOn = true;
+  toggle.classList.add('on');
+  dot.className = 'dot on';
+  ival.classList.add('on');
+  setStatus('~' + Math.round(onMs/1000) + 's', 'on');
+  send({ action: 'constant', val: intensity });
+
+  _diceTimeout = setTimeout(() => {
+    if (!_diceActive) return;
+    // OFF phase: 1s–120s
+    const offMs = rand(1000, 120000);
+    isOn = false;
+    toggle.classList.remove('on');
+    dot.className = 'dot off';
+    ival.classList.remove('on');
+    setStatus('~' + Math.round(offMs/1000) + 's', '');
+    send({ action: 'stop' });
+
+    _diceTimeout = setTimeout(diceStep, offMs);
+  }, onMs);
+}
+
+function toggleDice() {
+  if (_diceActive) {
+    stopDice();
+  } else {
+    stopDice(); // clear any remnants
+    _diceActive = true;
+    document.getElementById('dice-btn').classList.add('active');
+    document.getElementById('dice-btn').textContent = '🎲 Stop';
+    diceStep();
+  }
+}
+
+function stopDice() {
+  _diceActive = false;
+  if (_diceTimeout) { clearTimeout(_diceTimeout); _diceTimeout = null; }
+  const btn = document.getElementById('dice-btn');
+  if (btn) { btn.classList.remove('active'); btn.textContent = '🎲 Dice'; }
+  if (isOn) turnOff(false);
 }
 
 // ── Shake ─────────────────────────────────────────────────────────────────
