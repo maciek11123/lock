@@ -63,9 +63,9 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
   <input type="range" id="slider" min="0" max="100" value="50" oninput="onSlider(this.value)">
 </div>
 
-<button class="btn-send" id="btn-send" onclick="sendConstant()" disabled>⚡ Send</button>
+<button class="btn-send" id="btn-send" onclick="togglePulse()" disabled>⚡ Pulse</button>
 <div id="batt-indicator" style="position:fixed;top:12px;right:12px;font-size:12px;color:#a78bfa;opacity:0;transition:opacity .5s;background:#13131a;padding:4px 10px;border-radius:20px;border:1px solid #2a2a3a">🔋</div>
-<button class="btn-stop" id="btn-stop" onclick="sendStop()" disabled>⏹ Stop</button>
+<button class="btn-stop" id="btn-stop" onclick="stopAll()" disabled>⏹ Stop</button>
 
 <script>
 const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
@@ -119,8 +119,49 @@ function onSlider(val) {
   document.getElementById('big-val').textContent = intensity;
 }
 
+let pulseTimer = null;
+let pulseOn = false;
+
 function sendConstant() { if (conn) conn.send({ action: 'constant', val: intensity }); }
 function sendStop() { if (conn) conn.send({ action: 'stop' }); }
+
+function stopAll() {
+  if (pulseTimer) {
+    clearInterval(pulseTimer);
+    pulseTimer = null;
+    pulseOn = false;
+    const btn = document.getElementById('btn-send');
+    btn.textContent = '⚡ Pulse';
+    btn.style.background = 'linear-gradient(135deg, #34d399, #059669)';
+  }
+  sendStop();
+}
+
+function togglePulse() {
+  if (pulseTimer) {
+    // Stop pulsing
+    clearInterval(pulseTimer);
+    pulseTimer = null;
+    pulseOn = false;
+    sendStop();
+    const btn = document.getElementById('btn-send');
+    btn.textContent = '⚡ Pulse';
+    btn.style.background = 'linear-gradient(135deg, #34d399, #059669)';
+  } else {
+    // Start pulsing: 1s on, 1s off
+    const btn = document.getElementById('btn-send');
+    btn.textContent = '⏸ Stop';
+    btn.style.background = 'linear-gradient(135deg, #f87171, #dc2626)';
+    // Start immediately with ON
+    pulseOn = true;
+    sendConstant();
+    pulseTimer = setInterval(() => {
+      pulseOn = !pulseOn;
+      if (pulseOn) sendConstant();
+      else sendStop();
+    }, 1000);
+  }
+}
 
 window.RemoteAPI = {
   sendConstant: (val) => { onSlider(val); sendConstant(); },
