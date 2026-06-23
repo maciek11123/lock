@@ -136,6 +136,26 @@ html, body {
   transition: color 0.3s;
 }
 .intensity-val.on { color: #c084fc; }
+
+/* Alarm section */
+.alarm-row {
+  display: flex; gap: 2vmin; align-items: center; justify-content: center;
+}
+.alarm-input {
+  background: #111120; border: 1px solid #2a2a3a; color: #aaa;
+  border-radius: 8px; font-size: 4vmin; font-weight: 700;
+  padding: 1.5vmin 2vmin; text-align: center; width: 28vmin;
+  -webkit-appearance: none;
+}
+.alarm-input:focus { outline: none; border-color: #f59e0b; color: #fff; }
+.alarm-set-btn {
+  background: #111120; border: 1px solid #2a2a3a; color: #555;
+  border-radius: 20px; font-size: 3vmin; font-weight: 700;
+  padding: 2vmin 4vmin; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  -webkit-user-select: none; user-select: none;
+}
+.alarm-set-btn.active { background: #2a1a0a; border-color: #f59e0b; color: #f59e0b; }
 </style>
 </head>
 <body>
@@ -168,6 +188,12 @@ html, body {
 
   <!-- Shake toggle -->
   <button class="shake-btn" id="shake-btn" onclick="toggleShake()">🫨 Shake</button>
+
+  <!-- Alarm -->
+  <div class="alarm-row">
+    <input class="alarm-input" type="time" id="alarm-time">
+    <button class="alarm-set-btn" id="alarm-btn" onclick="toggleAlarm()">⏰ Set</button>
+  </div>
 
 </div>
 
@@ -383,6 +409,43 @@ function handleShake(e) {
       send({ action: 'constant', val: intensity });
     }
   }
+}
+
+// ── Alarm ─────────────────────────────────────────────────────────────────
+let _alarmSet = false;
+
+function toggleAlarm() {
+  if (_alarmSet) {
+    cancelAlarm();
+  } else {
+    setAlarm();
+  }
+}
+
+function setAlarm() {
+  const timeVal = document.getElementById('alarm-time').value;
+  if (!timeVal) { alert('Pick a time first'); return; }
+  const [h, m] = timeVal.split(':').map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  // If time already passed today, schedule for tomorrow
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const delay = target - now;
+  const mins = Math.round(delay / 60000);
+  send({ action: 'alarm', startAt: target.getTime() });
+  _alarmSet = true;
+  const btn = document.getElementById('alarm-btn');
+  btn.classList.add('active');
+  btn.textContent = `⏰ ${mins}m`;
+}
+
+function cancelAlarm() {
+  send({ action: 'alarm_cancel' });
+  _alarmSet = false;
+  const btn = document.getElementById('alarm-btn');
+  btn.classList.remove('active');
+  btn.textContent = '⏰ Set';
 }
 
 </script>
