@@ -176,6 +176,8 @@ let conn = null;
 let isOn = false;
 let intensity = 50;
 let _pendingStop = false;
+let _pulseTimer = null;
+let _pulsePhase = false; // true = currently ON phase
 
 const dot    = document.getElementById('dot');
 const toggle = document.getElementById('toggle');
@@ -241,9 +243,49 @@ function turnOff(silent) {
   if (!silent) send({ action: 'stop' });
 }
 
+function stopPulse() {
+  if (_pulseTimer) { clearInterval(_pulseTimer); _pulseTimer = null; }
+  _pulsePhase = false;
+}
+
+function startPulse() {
+  stopPulse();
+  // Fire ON immediately
+  _pulsePhase = true;
+  isOn = true;
+  toggle.classList.add('on');
+  dot.className = 'dot on';
+  ival.classList.add('on');
+  setStatus('pulse', 'on');
+  send({ action: 'constant', val: intensity });
+  _pulseTimer = setInterval(() => {
+    _pulsePhase = !_pulsePhase;
+    if (_pulsePhase) {
+      isOn = true;
+      toggle.classList.add('on');
+      dot.className = 'dot on';
+      ival.classList.add('on');
+      setStatus('pulse', 'on');
+      send({ action: 'constant', val: intensity });
+    } else {
+      isOn = false;
+      toggle.classList.remove('on');
+      dot.className = 'dot off';
+      ival.classList.remove('on');
+      setStatus('pause', '');
+      send({ action: 'stop' });
+    }
+  }, 1000);
+}
+
 function onToggle() {
-  if (isOn) turnOff(false);
-  else turnOn();
+  if (_pulseTimer) {
+    // Pulsing → stop everything
+    stopPulse();
+    turnOff(false);
+  } else {
+    startPulse();
+  }
 }
 
 function changeIntensity(delta) {
@@ -275,6 +317,7 @@ function startTimer(secs) {
   if (!isOn) turnOn();
   _timerHandle = setInterval(() => {
     if (Date.now() >= _timerEnd) {
+      stopPulse();
       turnOff(false);
       clearTimer();
     }
