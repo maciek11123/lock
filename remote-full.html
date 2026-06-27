@@ -597,8 +597,10 @@ function toggleView() {
   document.getElementById('simple-sections').style.display = _fullView ? 'none' : '';
   document.getElementById('view-toggle').textContent = _fullView ? 'SIMPLE' : 'FULL';
 }
-// Start in full view: hide simple sections
+// Start in full view
+document.getElementById('full-sections').style.display = '';
 document.getElementById('simple-sections').style.display = 'none';
+document.getElementById('view-toggle').textContent = 'SIMPLE';
 
 // ── Bottom Sheet ──────────────────────────────────────────────────────────
 function openSheet() {
