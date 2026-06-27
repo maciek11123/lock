@@ -539,6 +539,11 @@ function handleTimerClick(btnId, secs) {
 let _shakeActive = false;
 let _lastShakeTime = 0;
 let _lastMag = 9.8;
+let _shakeStopTimer = null;
+
+const SHAKE_THRESHOLD = 10;   // delta must exceed this (was 3 — much less twitchy)
+const SHAKE_DEBOUNCE  = 300;  // ms between triggers (was 80)
+const SHAKE_STOP_MS   = 1500; // stop if no movement for this long
 
 async function toggleShake() {
   if (_shakeActive) { stopShake(); return; }
@@ -555,32 +560,39 @@ async function toggleShake() {
 
 function stopShake() {
   _shakeActive = false;
+  if (_shakeStopTimer) { clearTimeout(_shakeStopTimer); _shakeStopTimer = null; }
   document.getElementById('shake-btn').classList.remove('active');
   window.removeEventListener('devicemotion', handleShake);
+  if (isRunning) setPlayState(false);
 }
 
 function handleShake(e) {
   if (!_shakeActive) return;
   const now = Date.now();
-  if (now - _lastShakeTime < 80) return;
+  if (now - _lastShakeTime < SHAKE_DEBOUNCE) return;
   _lastShakeTime = now;
   const a = e.accelerationIncludingGravity;
   if (!a) return;
   const mag = Math.sqrt(a.x**2 + a.y**2 + a.z**2);
   const delta = Math.abs(mag - _lastMag);
   _lastMag = mag;
-  if (delta > 3) {
-    const newVal = Math.min(100, Math.round((delta / 20) * 100));
-    if (newVal > 5) {
-      if (!isRunning) {
-        if (!currentMode) currentMode = { id: 'constant', vals: null };
-        setPlayState(true);
-      }
-      intensity = newVal;
-      document.getElementById('int-display').innerHTML = `${intensity} <span>%</span>`;
-      document.getElementById('int-slider').value = intensity;
-      sendCurrentMode();
+
+  if (delta > SHAKE_THRESHOLD) {
+    // Movement detected — map delta to intensity (10–100)
+    const newVal = Math.min(100, Math.max(10, Math.round((delta / 30) * 100)));
+    intensity = newVal;
+    document.getElementById('int-display').innerHTML = `${intensity} <span>%</span>`;
+    document.getElementById('int-slider').value = intensity;
+    if (!isRunning) {
+      if (!currentMode) currentMode = { id: 'constant', vals: null };
+      setPlayState(true);
     }
+    sendCurrentMode();
+    // Reset the stop timer
+    if (_shakeStopTimer) clearTimeout(_shakeStopTimer);
+    _shakeStopTimer = setTimeout(() => {
+      if (isRunning) setPlayState(false);
+    }, SHAKE_STOP_MS);
   }
 }
 
