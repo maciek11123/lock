@@ -208,16 +208,9 @@ let lastWalkTime = 0;
 
 // ── Connect ───────────────────────────────────────────────────────────────
 async function fetchAndConnect() {
-  try {
-    document.getElementById('connecting-msg').textContent = 'Looking up host ID...';
-    const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
-    if (!res.ok) throw new Error('id.json not found');
-    const data = await res.json();
-    document.getElementById('connecting-msg').textContent = `Connecting to ${data.id}...`;
-    peer.on('open', () => connectToHost(data.id));
-  } catch(e) {
-    document.getElementById('connecting-msg').textContent = 'Could not find host. Is it running?';
-  }
+  const targetId = 'locks-mac-home';
+  document.getElementById('connecting-msg').textContent = `Connecting to ${targetId}...`;
+  peer.on('open', () => connectToHost(targetId));
 }
 
 function connectToHost(id) {
