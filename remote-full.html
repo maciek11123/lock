@@ -231,16 +231,11 @@ function connectToHost() {
   if (conn) { try { conn.close(); } catch(e) {} }
   conn = peer.connect(HOST_ID, { reliable: true });
 
-  // Send a ping once the data channel opens; wait 4s for any reply
+  // Data channel open = host is real, mark verified immediately
   conn.on('open', () => {
-    conn.send({ action: 'ping' });
-    if (_pingTimer) clearTimeout(_pingTimer);
-    _pingTimer = setTimeout(() => {
-      if (!_verified) {
-        // No response — stale slot, force full reconnect
-        scheduleReconnect(500);
-      }
-    }, 4000);
+    if (_pingTimer) { clearTimeout(_pingTimer); _pingTimer = null; }
+    _verified = true;
+    setStatus(true, 'Connected');
   });
 
   conn.on('data', d => {
