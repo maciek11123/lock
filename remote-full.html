@@ -200,33 +200,69 @@ const WAVES_PATTERNS = [
 ];
 
 let intensity = 50, currentMode = null;
-let peer = new Peer();
+let peer = null;
 let conn = null;
 let isRunning = false;
 let walkingActive = false;
 let lastWalkTime = 0;
+let _verified = false;
+let _pingTimer = null;
+let _reconnectTimer = null;
 
-// ── Connect ───────────────────────────────────────────────────────────────
-async function fetchAndConnect() {
-  peer.on('open', () => connectToHost('locks-mac-home'));
+const HOST_ID = 'locks-mac-home';
+
+function setStatus(ok, label) {
+  document.getElementById('dot').className = 'dot ' + (ok ? 'ok' : 'err');
+  document.getElementById('status-lbl').textContent = label;
 }
 
-function connectToHost(id) {
-  conn = peer.connect(id);
+// ── Connect ───────────────────────────────────────────────────────────────
+function startConnect() {
+  if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+  if (peer) { try { peer.destroy(); } catch(e) {} }
+  _verified = false;
+  peer = new Peer();
+  peer.on('open', () => connectToHost());
+  peer.on('error', () => scheduleReconnect());
+  peer.on('disconnected', () => scheduleReconnect());
+}
+
+function connectToHost() {
+  if (conn) { try { conn.close(); } catch(e) {} }
+  conn = peer.connect(HOST_ID, { reliable: true });
+
+  // Send a ping once the data channel opens; wait 4s for any reply
   conn.on('open', () => {
-    document.getElementById('dot').className = 'dot ok';
-    document.getElementById('status-lbl').textContent = 'Connected';
+    conn.send({ action: 'ping' });
+    if (_pingTimer) clearTimeout(_pingTimer);
+    _pingTimer = setTimeout(() => {
+      if (!_verified) {
+        // No response — stale slot, force full reconnect
+        scheduleReconnect(500);
+      }
+    }, 4000);
   });
+
   conn.on('data', d => {
     if (!d) return;
+    // Any message from host means it's alive
+    if (!_verified) {
+      _verified = true;
+      if (_pingTimer) { clearTimeout(_pingTimer); _pingTimer = null; }
+      setStatus(true, 'Connected');
+    }
     if (d.type === 'battery') {
       const icon = d.pct > 70 ? '🔋' : d.pct > 30 ? '🪫' : '⚠️';
       const el = document.getElementById('batt-indicator');
       if (el) { el.textContent = `${icon} ${d.pct}%`; el.style.opacity = '1'; }
     }
-    if (d.action === 'lock_status') {
-      updateLockUI(d.locked);
+    if (d.action === 'ble_status') {
+      // First message the host sends — marks verified
+      _verified = true;
+      if (_pingTimer) { clearTimeout(_pingTimer); _pingTimer = null; }
+      setStatus(true, 'Connected');
     }
+    if (d.action === 'lock_status') updateLockUI(d.locked);
     if (d.action === 'alarm_started') {
       document.getElementById('alarm-status').textContent = '🔔 Alarm firing!';
     }
@@ -234,18 +270,24 @@ function connectToHost(id) {
       document.getElementById('alarm-status').textContent = '✓ Ramp complete';
     }
   });
-  conn.on('error', () => {
-    document.getElementById('connecting-msg').textContent = 'Connection failed. Retrying...';
-    setTimeout(fetchAndConnect, 3000);
-  });
+
+  conn.on('error', () => scheduleReconnect());
   conn.on('close', () => {
-    document.getElementById('dot').className = 'dot err';
-    document.getElementById('status-lbl').textContent = 'Disconnected';
-    setTimeout(fetchAndConnect, 3000);
+    _verified = false;
+    setStatus(false, 'Disconnected');
+    scheduleReconnect();
   });
 }
 
-fetchAndConnect();
+function scheduleReconnect(delay = 3000) {
+  _verified = false;
+  setStatus(false, 'Disconnected');
+  if (_pingTimer) { clearTimeout(_pingTimer); _pingTimer = null; }
+  if (_reconnectTimer) clearTimeout(_reconnectTimer);
+  _reconnectTimer = setTimeout(startConnect, delay);
+}
+
+startConnect();
 
 // ── Build grids ───────────────────────────────────────────────────────────
 function buildGrids() {
@@ -298,7 +340,7 @@ function clearAllModeActive() {
 function scaleVals(vals, intensity) { return vals.map(v => Math.min(100, v * intensity)); }
 
 function sendCurrentMode() {
-  if (!conn || !currentMode) return;
+  if (!conn || !conn.open || !_verified || !currentMode) return;
   if (currentMode.id === 'constant' || currentMode.id === 'walking') {
     conn.send({ action: 'constant', val: intensity });
   } else {
@@ -314,7 +356,7 @@ function setPlayState(play) {
     sendCurrentMode();
   } else {
     btn.innerHTML = '▶ Start'; btn.style.color = 'var(--green)';
-    if (conn) conn.send({ action: 'stop' });
+    if (conn && conn.open && _verified) conn.send({ action: 'stop' });
   }
 }
 
@@ -571,11 +613,11 @@ function closeSheet() {
 // ── Lock / Unlock ─────────────────────────────────────────────────────────
 let _isLocked = false;
 function sendLock() {
-  if (conn) conn.send({ action: 'lock' });
+  if (conn && conn.open && _verified) conn.send({ action: 'lock' });
   updateLockUI(true);
 }
 function sendUnlock() {
-  if (conn) conn.send({ action: 'unlock' });
+  if (conn && conn.open && _verified) conn.send({ action: 'unlock' });
   updateLockUI(false);
 }
 function updateLockUI(locked) {
@@ -620,7 +662,7 @@ function stopDice() {
   const btn = document.getElementById('dice-btn');
   btn.classList.remove('dice-on');
   document.getElementById('dice-label').textContent = 'Start Dice';
-  if (conn) conn.send({ action: 'stop' });
+  if (conn && conn.open && _verified) conn.send({ action: 'stop' });
   // Sync play button state
   isRunning = false;
   document.getElementById('play-btn').innerHTML = '▶ Start';
@@ -635,7 +677,7 @@ function runDiceCycle() {
   isRunning = true;
   document.getElementById('play-btn').innerHTML = '⏹ Stop';
   document.getElementById('play-btn').style.color = 'var(--red)';
-  if (conn) conn.send({ action: 'constant', val: intensity });
+  if (conn && conn.open && _verified) conn.send({ action: 'constant', val: intensity });
   _diceTimeout = setTimeout(() => {
     if (!_diceActive) return;
     // OFF phase: 0s – 20 min
@@ -643,7 +685,7 @@ function runDiceCycle() {
     isRunning = false;
     document.getElementById('play-btn').innerHTML = '▶ Start';
     document.getElementById('play-btn').style.color = 'var(--green)';
-    if (conn) conn.send({ action: 'stop' });
+    if (conn && conn.open && _verified) conn.send({ action: 'stop' });
     _diceTimeout = setTimeout(() => runDiceCycle(), offMs);
   }, onMs);
 }
@@ -664,14 +706,14 @@ function setAlarm() {
   target.setHours(hr, min, 0, 0);
   if (target <= now) target.setDate(target.getDate() + 1);
   _alarmEpoch = target.getTime();
-  if (conn) conn.send({ action: 'alarm', startAt: _alarmEpoch });
+  if (conn && conn.open && _verified) conn.send({ action: 'alarm', startAt: _alarmEpoch });
   startAlarmCountdown();
 }
 
 function cancelAlarm() {
   _alarmEpoch = null;
   if (_alarmTick) { clearInterval(_alarmTick); _alarmTick = null; }
-  if (conn) conn.send({ action: 'alarm_cancel' });
+  if (conn && conn.open && _verified) conn.send({ action: 'alarm_cancel' });
   document.getElementById('alarm-status').textContent = 'Alarm cancelled';
   setTimeout(() => { document.getElementById('alarm-status').textContent = ''; }, 2500);
 }
