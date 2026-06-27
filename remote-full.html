@@ -123,9 +123,9 @@ if ('serviceWorker' in navigator) {
 </head>
 <body>
 
-<div class="connecting-overlay" id="connecting-overlay">
+<div class="connecting-overlay" id="connecting-overlay" style="display:none;">
   <div class="spinner"></div>
-  <p id="connecting-msg">Looking up host ID...</p>
+  <p id="connecting-msg"></p>
 </div>
 
 <div class="header">
@@ -208,15 +208,12 @@ let lastWalkTime = 0;
 
 // ── Connect ───────────────────────────────────────────────────────────────
 async function fetchAndConnect() {
-  const targetId = 'locks-mac-home';
-  document.getElementById('connecting-msg').textContent = `Connecting to ${targetId}...`;
-  peer.on('open', () => connectToHost(targetId));
+  peer.on('open', () => connectToHost('locks-mac-home'));
 }
 
 function connectToHost(id) {
   conn = peer.connect(id);
   conn.on('open', () => {
-    document.getElementById('connecting-overlay').style.display = 'none';
     document.getElementById('dot').className = 'dot ok';
     document.getElementById('status-lbl').textContent = 'Connected';
   });
@@ -244,7 +241,6 @@ function connectToHost(id) {
   conn.on('close', () => {
     document.getElementById('dot').className = 'dot err';
     document.getElementById('status-lbl').textContent = 'Disconnected';
-    document.getElementById('connecting-overlay').style.display = 'flex';
     setTimeout(fetchAndConnect, 3000);
   });
 }
