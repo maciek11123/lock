@@ -610,12 +610,16 @@ function closeSheet() {
 // ── Lock / Unlock ─────────────────────────────────────────────────────────
 let _isLocked = false;
 function sendLock() {
-  if (conn && conn.open && _verified) conn.send({ action: 'lock' });
-  updateLockUI(true);
+  if (conn && conn.open && _verified) {
+    conn.send({ action: 'lock' });
+    updateLockUI(true);
+  }
 }
 function sendUnlock() {
-  if (conn && conn.open && _verified) conn.send({ action: 'unlock' });
-  updateLockUI(false);
+  if (conn && conn.open && _verified) {
+    conn.send({ action: 'unlock' });
+    updateLockUI(false);
+  }
 }
 function updateLockUI(locked) {
   _isLocked = locked;
@@ -733,6 +737,13 @@ function startAlarmCountdown() {
   }, 1000);
 }
 
+
+// Keepalive: prevent idle PeerJS disconnect
+setInterval(() => {
+  if (conn && conn.open && _verified) {
+    try { conn.send({ action: 'keepalive' }); } catch(e) {}
+  }
+}, 25000);
 
 async function keepAwake() {
   try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(e) {}
