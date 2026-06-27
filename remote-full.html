@@ -479,22 +479,20 @@ const CIRC = 2 * Math.PI * R; // ~175.9
 })();
 
 let _timerHandle = null;
-let _timerRaf = null;
+let _timerTick = null;
 let _activeTimerId = null;
 let _timerEnd = 0;
 let _timerDur = 0;
 
 function clearTimer() {
   if (_timerHandle) { clearTimeout(_timerHandle); _timerHandle = null; }
-  if (_timerRaf)    { cancelAnimationFrame(_timerRaf); _timerRaf = null; }
+  if (_timerTick)   { clearTimeout(_timerTick);   _timerTick = null; }
   if (_activeTimerId) {
     const el = document.getElementById(_activeTimerId);
     if (el) {
       el.classList.remove('active');
       el.classList.add('idle');
-      // reset arc
       el.querySelector('.tc-arc').style.strokeDashoffset = '0';
-      // reset label to original
       const t = TIMERS.find(x => x.id === _activeTimerId);
       if (t) el.querySelector('.tc-label').textContent = t.label;
     }
@@ -507,15 +505,11 @@ function tickTimer() {
   const el = document.getElementById(_activeTimerId);
   if (!el) return;
   const remaining = Math.max(0, _timerEnd - Date.now());
-  const frac = remaining / (_timerDur * 1000); // 1→0
-  const offset = CIRC * (1 - frac);            // arc drains
-  el.querySelector('.tc-arc').style.strokeDashoffset = offset;
-  // live countdown label
+  const frac = remaining / (_timerDur * 1000);
+  el.querySelector('.tc-arc').style.strokeDashoffset = CIRC * (1 - frac);
   const secs = Math.ceil(remaining / 1000);
   el.querySelector('.tc-label').textContent = secs > 0 ? secs + 's' : '✓';
-  if (remaining > 0) {
-    _timerRaf = requestAnimationFrame(tickTimer);
-  }
+  if (remaining > 0) _timerTick = setTimeout(tickTimer, 1000); // 1s is plenty — no need for 60fps
 }
 
 function handleTimerClick(btnId, secs) {
@@ -536,7 +530,7 @@ function handleTimerClick(btnId, secs) {
   el.classList.add('active');
   if (!currentMode) currentMode = { id: 'constant', vals: null };
   if (!isRunning) setPlayState(true);
-  _timerRaf = requestAnimationFrame(tickTimer);
+  _timerTick = setTimeout(tickTimer, 1000);
   _timerHandle = setTimeout(() => {
     clearTimer();
     clearAllModeActive();
@@ -765,11 +759,8 @@ setInterval(() => {
   }
 }, 25000);
 
-async function keepAwake() {
-  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch(e) {}
-}
-keepAwake();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+// Screen wake lock intentionally removed — browser tab stays active with screen off.
+// Holding the screen on permanently drains battery significantly.
 </script>
 
 <button id="pwa-install-btn" onclick="pwaInstall()">⬇ Install App</button>
