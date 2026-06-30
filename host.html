@@ -239,6 +239,10 @@ peer.on('connection', conn => {
       scheduleAlarm(data.startAt);
     } else if (data.action === 'alarm_cancel') {
       cancelAlarm();
+    } else if (data.action === 'program') {
+      startProgram(data);
+    } else if (data.action === 'program_cancel') {
+      cancelProgram(); onSlider(0); sendStop(); log('⏹ Program cancelled', 'info');
     }
   });
   conn.on('close', () => {
@@ -274,7 +278,7 @@ function playPattern(vals) {
 }
 
 function triggerLocalVibrate() { clearInterval(patternInterval); sendVibrate(); }
-function triggerLocalStop() { clearInterval(patternInterval); onSlider(0); sendStop(); cancelAlarm(); }
+function triggerLocalStop() { clearInterval(patternInterval); cancelProgram(); onSlider(0); sendStop(); cancelAlarm(); }
 
 // ── Alarm ─────────────────────────────────────────────────────────────────
 let _alarmTimeout = null;
@@ -315,6 +319,44 @@ function scheduleAlarm(startAt) {
       }
     }, STEP_MS);
   }, delay);
+}
+
+// ── Program (host-driven timed random sequence) ──────────────────────────
+let _programTimeout = null;
+let _programEndAt = 0;
+
+function cancelProgram() {
+  if (_programTimeout) { clearTimeout(_programTimeout); _programTimeout = null; }
+  _programEndAt = 0;
+}
+
+function startProgram(opts) {
+  cancelProgram();
+  clearInterval(patternInterval);
+  const onMs   = opts.onMs       ?? 3000;
+  const minPow = opts.minPow     ?? 20;
+  const maxPow = opts.maxPow     ?? 100;
+  const minOff = opts.minOff     ?? 5000;
+  const maxOff = opts.maxOff     ?? 1200000;
+  const durMs  = opts.durationMs ?? 10800000; // default 3h
+  _programEndAt = Date.now() + durMs;
+  log(`▶ Program started — ${Math.round(durMs/60000)} min, ${minPow}-${maxPow}% pulses`, 'ok');
+
+  function pulseOn() {
+    if (!_programEndAt) return;
+    if (Date.now() >= _programEndAt) { cancelProgram(); onSlider(0); sendStop(); log('⏹ Program complete', 'ok'); return; }
+    const power = minPow + Math.floor(Math.random() * (maxPow - minPow + 1));
+    onSlider(power); sendVibrate();
+    _programTimeout = setTimeout(pulseOff, onMs);
+  }
+  function pulseOff() {
+    if (!_programEndAt) return;
+    onSlider(0); sendStop();
+    if (Date.now() >= _programEndAt) { cancelProgram(); log('⏹ Program complete', 'ok'); return; }
+    const offMs = minOff + Math.random() * (maxOff - minOff);
+    _programTimeout = setTimeout(pulseOn, offMs);
+  }
+  pulseOn();
 }
 
 const SVC_UUID   = '00001000-0000-1000-8000-00805f9b34fb';
