@@ -1,7 +1,7 @@
 {
   "name": "Lock Remote",
   "short_name": "Remote",
-  "start_url": "/lock/remote-full.html",
+  "start_url": "/lock/remote-simple.html",
   "scope": "/lock/",
   "display": "standalone",
   "background_color": "#0d0d0f",
