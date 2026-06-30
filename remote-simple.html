@@ -22,6 +22,7 @@ button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.35; cursor: not-allowed; }
 .btn-send    { background: linear-gradient(135deg, #34d399, #059669); color: #fff; }
 .btn-stop    { background: #1c1c24; color: #f87171; border: 1px solid #3f3f46; }
+.btn-dice    { background: linear-gradient(135deg, #c084fc, #7c3aed); color: #fff; }
 .slider-row  { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 6px; }
 .slider-label { display: flex; justify-content: space-between; font-size: 13px; color: #666; }
 input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
@@ -64,6 +65,7 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 </div>
 
 <button class="btn-send" id="btn-send" onclick="togglePulse()" disabled>⚡ Pulse</button>
+<button class="btn-dice" id="btn-dice" onclick="toggleDice()" disabled>🎲 Dice — 3h</button>
 <div id="batt-indicator" style="position:fixed;top:12px;right:12px;font-size:12px;color:#a78bfa;opacity:0;transition:opacity .5s;background:#13131a;padding:4px 10px;border-radius:20px;border:1px solid #2a2a3a">🔋</div>
 <button class="btn-stop" id="btn-stop" onclick="stopAll()" disabled>⏹ Stop</button>
 
@@ -83,6 +85,7 @@ function setStatus(msg, cls) {
 function setConnected(yes) {
   document.getElementById('btn-send').disabled = !yes;
   document.getElementById('btn-stop').disabled = !yes;
+  document.getElementById('btn-dice').disabled = !yes;
 }
 
 async function fetchAndConnect() {
@@ -121,6 +124,7 @@ function onSlider(val) {
 
 let pulseTimer = null;
 let pulseOn = false;
+let _diceOn = false;
 
 function sendConstant() { if (conn) conn.send({ action: 'constant', val: intensity }); }
 function sendStop() { if (conn) conn.send({ action: 'stop' }); }
@@ -134,6 +138,7 @@ function stopAll() {
     btn.textContent = '⚡ Pulse';
     btn.style.background = 'linear-gradient(135deg, #34d399, #059669)';
   }
+  if (_diceOn) { if (conn) conn.send({ action: 'program_cancel' }); resetDiceBtn(); }
   sendStop();
 }
 
@@ -160,6 +165,35 @@ function togglePulse() {
       if (pulseOn) sendConstant();
       else sendStop();
     }, 1000);
+  }
+}
+
+function resetDiceBtn() {
+  _diceOn = false;
+  const btn = document.getElementById('btn-dice');
+  btn.textContent = '🎲 Dice — 3h';
+  btn.style.background = 'linear-gradient(135deg, #c084fc, #7c3aed)';
+}
+
+function toggleDice() {
+  if (!conn) return;
+  if (_diceOn) {
+    conn.send({ action: 'program_cancel' });
+    resetDiceBtn();
+  } else {
+    // Stop any manual pulse first
+    if (pulseTimer) {
+      clearInterval(pulseTimer); pulseTimer = null; pulseOn = false;
+      const pb = document.getElementById('btn-send');
+      pb.textContent = '⚡ Pulse';
+      pb.style.background = 'linear-gradient(135deg, #34d399, #059669)';
+    }
+    // Host runs the whole 3h program; this phone can lock afterwards
+    conn.send({ action: 'program', onMs: 3000, minPow: 20, maxPow: 100, minOff: 5000, maxOff: 1200000, durationMs: 10800000 });
+    _diceOn = true;
+    const btn = document.getElementById('btn-dice');
+    btn.textContent = '⏹ Stop Dice';
+    btn.style.background = 'linear-gradient(135deg, #f87171, #dc2626)';
   }
 }
 
