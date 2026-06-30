@@ -668,7 +668,16 @@ function startDice() {
   const btn = document.getElementById('dice-btn');
   btn.classList.add('dice-on');
   document.getElementById('dice-label').textContent = 'Stop Dice';
-  runDiceCycle();
+  // Host-driven: send the whole 3h program once, then this remote can lock/disconnect
+  send({
+    action: 'program',
+    onMs: 3000,
+    minPow: 20,
+    maxPow: 100,
+    minOff: 5000,
+    maxOff: 1200000,
+    durationMs: 10800000  // 3 hours
+  });
 }
 
 function stopDice() {
@@ -677,7 +686,7 @@ function stopDice() {
   const btn = document.getElementById('dice-btn');
   btn.classList.remove('dice-on');
   document.getElementById('dice-label').textContent = 'Start Dice';
-  send({ action: 'stop' });
+  send({ action: 'program_cancel' });
   // Sync play button state
   isRunning = false;
   document.getElementById('play-btn').innerHTML = '▶ Start';
@@ -685,30 +694,8 @@ function stopDice() {
   currentMode = null;
 }
 
-function runDiceCycle() {
-  if (!_diceActive) return;
-  // ON phase: fixed 3s, random power 20–100%
-  const onMs = 3000;
-  const power = 20 + Math.floor(Math.random() * 81);
-  isRunning = true;
-  document.getElementById('play-btn').innerHTML = '⏹ Stop';
-  document.getElementById('play-btn').style.color = 'var(--red)';
-  // Reflect the random power on the dial for live feedback
-  intensity = power;
-  document.getElementById('int-display').innerHTML = `${power} <span>%</span>`;
-  document.getElementById('int-slider').value = power;
-  send({ action: 'constant', val: power });
-  _diceTimeout = setTimeout(() => {
-    if (!_diceActive) return;
-    // OFF phase: 5s – 20 min
-    const offMs = 5000 + Math.random() * 1195000;
-    isRunning = false;
-    document.getElementById('play-btn').innerHTML = '▶ Start';
-    document.getElementById('play-btn').style.color = 'var(--green)';
-    send({ action: 'stop' });
-    _diceTimeout = setTimeout(() => runDiceCycle(), offMs);
-  }, onMs);
-}
+// Dice now runs host-side via the 'program' action (see startDice).
+// The host drives all pulses so this remote can lock or disconnect mid-run.
 
 // ── Alarm ─────────────────────────────────────────────────────────────────
 let _alarmEpoch = null;
@@ -797,7 +784,7 @@ setInterval(() => {
         <span>🎲</span><span id="dice-label">Start Dice</span>
       </button>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">Random pulses — 3s on at random 20–100% power, 5s–20min off</div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;">Host-driven 3h program — 3s on at 20–100%, 5s–20min off · phone can lock</div>
   </div>
 
   <!-- Alarm -->
