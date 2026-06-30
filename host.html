@@ -155,13 +155,13 @@ function saveToken() {
   document.getElementById('token-row').style.display = 'none';
   document.getElementById('git-status').textContent = 'retrying...';
   document.getElementById('git-status').className = 'status-value wait';
-  pushIdToGitHub('LOCKS-7B2K');
+  pushIdToGitHub('locks-mac-home');
 }
 const GITHUB_REPO  = 'maciek11123/lock';
 const ID_FILE      = 'id.json';
 
 function getPersistentId() {
-  const FIXED_ID = 'LOCKS-7B2K';
+  const FIXED_ID = 'locks-mac-home';
   try { localStorage.setItem('adorime_peer_id', FIXED_ID); } catch(e) {}
   return FIXED_ID;
 }
