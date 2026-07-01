@@ -31,6 +31,20 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 .status.ok  { color: #4ade80; }
 .status.err { color: #f87171; }
 .status.wait { color: #facc15; }
+/* Extras */
+.btn-extras { background: #13131a; color: #a78bfa; border: 1px solid #2a2a3a; font-size: 13px; padding: 10px; }
+.extras { width: 100%; max-width: 320px; display: none; flex-direction: column; gap: 14px; background: #101017; border: 1px solid #2a2a3a; border-radius: 14px; padding: 14px; }
+.extras.open { display: flex; }
+.extras-sec { display: flex; flex-direction: column; gap: 8px; }
+.extras-title { font-size: 13px; color: #888; font-weight: 700; }
+.alarm-row, .lock-row { display: flex; align-items: center; gap: 6px; }
+.time-in { width: 56px; padding: 8px; border-radius: 8px; border: 1px solid #3f3f46; background: #1c1c24; color: #e8e8f0; font-size: 14px; text-align: center; }
+.mini-set { width: auto; flex: 1; padding: 9px; border-radius: 8px; border: none; background: #6d28d9; color: #fff; font-size: 13px; font-weight: 700; }
+.mini-cancel { width: auto; padding: 9px 12px; border-radius: 8px; border: 1px solid #f87171; background: transparent; color: #f87171; font-size: 13px; font-weight: 700; }
+.mini-lock, .mini-unlock { width: auto; flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #3f3f46; background: #1c1c24; color: #e8e8f0; font-size: 13px; font-weight: 700; }
+.mini-lock.active { background: #7f1d1d; border-color: #f87171; color: #fff; }
+.mini-unlock.active { background: #065f46; border-color: #34d399; color: #fff; }
+.extras-status { font-size: 12px; color: #888; text-align: center; min-height: 16px; }
 </style>
 
   <!-- PWA -->
@@ -69,6 +83,29 @@ input[type=range] { width: 100%; accent-color: #c084fc; cursor: pointer; }
 <div id="batt-indicator" style="position:fixed;top:12px;right:12px;font-size:12px;color:#a78bfa;opacity:0;transition:opacity .5s;background:#13131a;padding:4px 10px;border-radius:20px;border:1px solid #2a2a3a">🔋</div>
 <button class="btn-stop" id="btn-stop" onclick="stopAll()" disabled>⏹ Stop</button>
 
+<button class="btn-extras" id="btn-extras" onclick="toggleExtras()">⋯ Extras</button>
+<div id="extras-panel" class="extras">
+  <div class="extras-sec">
+    <div class="extras-title">⏰ Alarm</div>
+    <div class="alarm-row">
+      <input type="number" id="alarm-hr" min="0" max="23" placeholder="HH" class="time-in">
+      <span style="color:#666">:</span>
+      <input type="number" id="alarm-min" min="0" max="59" placeholder="MM" class="time-in">
+      <button class="mini-set" onclick="setAlarm()">Set</button>
+      <button class="mini-cancel" onclick="cancelAlarm()">✕</button>
+    </div>
+    <div class="extras-status" id="alarm-status"></div>
+  </div>
+  <div class="extras-sec">
+    <div class="extras-title">🔒 Lock</div>
+    <div class="lock-row">
+      <button class="mini-lock" id="lock-btn" onclick="sendLock()">🔒 Lock</button>
+      <button class="mini-unlock" id="unlock-btn" onclick="sendUnlock()">🔓 Unlock</button>
+    </div>
+    <div class="extras-status" id="lock-status"></div>
+  </div>
+</div>
+
 <script>
 const GITHUB_RAW = 'https://raw.githubusercontent.com/maciek11123/lock/main/id.json';
 
@@ -103,6 +140,11 @@ async function fetchAndConnect() {
           const icon = d.pct > 70 ? '🔋' : d.pct > 30 ? '🪫' : '⚠️';
           const el = document.getElementById('batt-indicator');
           if (el) { el.textContent = `${icon} ${d.pct}%`; el.style.opacity = '1'; }
+        } else if (d && d.action === 'lock_status') {
+          updateLockUI(d.locked);
+        } else if (d && d.action === 'alarm_started') {
+          const el = document.getElementById('alarm-status');
+          if (el) el.textContent = '🔔 Alarm firing!';
         }
       });
       conn.on('error', () => { setConnected(false); setStatus('Failed — retrying...', 'err'); setTimeout(fetchAndConnect, 3000); });
@@ -195,6 +237,58 @@ function toggleDice() {
     btn.textContent = '⏹ Stop Dice';
     btn.style.background = 'linear-gradient(135deg, #f87171, #dc2626)';
   }
+}
+
+function toggleExtras() {
+  document.getElementById('extras-panel').classList.toggle('open');
+}
+
+// ── Alarm ──
+let _alarmEpoch = null, _alarmTick = null;
+function setAlarm() {
+  if (!conn) { document.getElementById('alarm-status').textContent = 'Not connected'; return; }
+  const hr  = parseInt(document.getElementById('alarm-hr').value);
+  const min = parseInt(document.getElementById('alarm-min').value);
+  if (isNaN(hr) || isNaN(min) || hr < 0 || hr > 23 || min < 0 || min > 59) {
+    document.getElementById('alarm-status').textContent = '⚠️ Invalid time'; return;
+  }
+  const now = new Date(), target = new Date();
+  target.setHours(hr, min, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  _alarmEpoch = target.getTime();
+  conn.send({ action: 'alarm', startAt: _alarmEpoch });
+  startAlarmCountdown();
+}
+function cancelAlarm() {
+  _alarmEpoch = null;
+  if (_alarmTick) { clearInterval(_alarmTick); _alarmTick = null; }
+  if (conn) conn.send({ action: 'alarm_cancel' });
+  document.getElementById('alarm-status').textContent = 'Alarm cancelled';
+  setTimeout(() => { const e = document.getElementById('alarm-status'); if (e) e.textContent = ''; }, 2500);
+}
+function startAlarmCountdown() {
+  if (_alarmTick) clearInterval(_alarmTick);
+  _alarmTick = setInterval(() => {
+    if (!_alarmEpoch) { clearInterval(_alarmTick); return; }
+    const diff = _alarmEpoch - Date.now();
+    if (diff <= 0) { clearInterval(_alarmTick); return; }
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const fmt = new Date(_alarmEpoch).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('alarm-status').textContent = `⏰ ${fmt} — ${h}h ${m}m ${s}s`;
+  }, 1000);
+}
+
+// ── Lock ──
+function sendLock()   { if (conn) conn.send({ action: 'lock' }); }
+function sendUnlock() { if (conn) conn.send({ action: 'unlock' }); }
+function updateLockUI(locked) {
+  const lb = document.getElementById('lock-btn');
+  const ub = document.getElementById('unlock-btn');
+  const st = document.getElementById('lock-status');
+  if (locked) { lb.classList.add('active'); ub.classList.remove('active'); st.textContent = '🔒 Host is locked'; }
+  else        { ub.classList.add('active'); lb.classList.remove('active'); st.textContent = '🔓 Host is unlocked'; }
 }
 
 window.RemoteAPI = {
