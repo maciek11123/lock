@@ -225,7 +225,11 @@ peer.on('connection', conn => {
   remotes.add(conn);
   log(`Remote connected (${remotes.size} total)`, 'ok');
   updateRemoteCount();
+  conn.on('open', () => { try { conn.send({ action: 'lock_status', locked: _locked }); } catch(e) {} });
   conn.on('data', data => {
+    if (data.action === 'lock')   { setLocked(true);  return; }
+    if (data.action === 'unlock') { setLocked(false); return; }
+    if (_locked && data.action !== 'stop') return; // locked: only stop honored
     if (data.action === 'constant') {
       clearInterval(patternInterval);
       intensity = data.val;
@@ -357,6 +361,18 @@ function startProgram(opts) {
     _programTimeout = setTimeout(pulseOn, offMs);
   }
   pulseOn();
+}
+
+// ── Lock gate (host refuses commands while locked) ───────────────────────
+let _locked = false;
+function broadcastToRemotes(msg) {
+  remotes.forEach(c => { if (c && c.open) { try { c.send(msg); } catch(e) {} } });
+}
+function setLocked(state) {
+  _locked = state;
+  if (state) { cancelProgram(); clearInterval(patternInterval); cancelAlarm(); onSlider(0); sendStop(); }
+  log(state ? '🔒 Locked — commands ignored until unlock' : '🔓 Unlocked', state ? 'wait' : 'ok');
+  broadcastToRemotes({ action: 'lock_status', locked: state });
 }
 
 const SVC_UUID   = '00001000-0000-1000-8000-00805f9b34fb';
